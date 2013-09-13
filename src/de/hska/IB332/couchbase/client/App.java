@@ -19,6 +19,8 @@ import de.hska.IB332.couchbase.service.CouchbaseServiceFactory;
 public class App {
 
 	/**
+	 * Starts the app. Read map/reduce functions from file, execute syntax checking, 
+	 * creates view on Couchbase Server and get the Result of the view.
 	 * @param args
 	 */
 	public static void main(String[] args) {
@@ -72,11 +74,24 @@ public class App {
 		}
 	}
 
+	/**
+	 * Read file into string.
+	 * @param path
+	 * @param encoding
+	 * @return String
+	 * @throws IOException
+	 */
 	static String readFile(String path, Charset encoding) throws IOException {
 		byte[] encoded = Files.readAllBytes(Paths.get(path));
 		return encoding.decode(ByteBuffer.wrap(encoded)).toString();
 	}
 	
+	/**
+	 * Check given JavaScript file for Syntax errors, by using JSL
+	 * @param path
+	 * @return String result
+	 * @throws IOException
+	 */
 	static String checkJavaScriptFile(String path) throws IOException {
 		Process process = new ProcessBuilder(
 				"C:\\Projects\\CouchbaseClient\\lib\\jsl\\jsl.exe",

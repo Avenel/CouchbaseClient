@@ -16,6 +16,7 @@ public class App {
 			CouchbaseService service = CouchbaseServiceFactory.getService("localhost", "", "");
 			
 			// create simple view
+			//  map function
 			String mapFunction =
 		            "function (doc, meta) {\n" +
 		            "  if(doc.type && doc.type == \"beer\") {\n" +
@@ -23,12 +24,15 @@ public class App {
 		            "  }\n" +
 		            "}";
 			
+			// reduce function
 			String reduceFunction = "_count";
 			
-			service.createView("beerTwo", "by_name", mapFunction, reduceFunction);
+			String designDocumentName = "beerTwo";
+			String viewName = "by_name";
+			service.createView(designDocumentName, viewName, mapFunction, reduceFunction);
 			
 			// get simple view
-			ViewResponse response = service.getView("beerTwo", "by_name", 10);
+			ViewResponse response = service.getView(designDocumentName, viewName, 10);
 			
 			// Print value (5891 = beer count)
 			for(ViewRow row : response) {

@@ -11,21 +11,26 @@ import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 
-import com.couchbase.client.protocol.views.ViewResponse;
-import com.couchbase.client.protocol.views.ViewRow;
-
 import javafx.application.Application;
+import javafx.collections.FXCollections;
+import javafx.collections.ObservableList;
 import javafx.event.ActionEvent;
 import javafx.event.EventHandler;
 import javafx.scene.Scene;
 import javafx.scene.control.Menu;
 import javafx.scene.control.MenuBar;
 import javafx.scene.control.MenuItem;
+import javafx.scene.control.TableColumn;
+import javafx.scene.control.TableView;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TitledPane;
+import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
+
+import com.couchbase.client.protocol.views.ViewRow;
+
 import de.hska.IB332.couchbase.service.CouchbaseService;
 import de.hska.IB332.couchbase.service.CouchbaseServiceFactory;
 
@@ -35,6 +40,8 @@ public class App extends Application {
 	private static TextArea textAreaMap;
 	private static TextArea textAreaResults;
 	private static CouchbaseService service;
+	private static ObservableList<CouchbaseResultRow> resultRows;
+	private static TableView<CouchbaseResultRow> table;
 	
 	/**
 	 * Starts the app. Read map/reduce functions from file, execute syntax checking, 
@@ -134,8 +141,9 @@ public class App extends Application {
 				
 				service.createView("beginner_new", "new", textAreaMap.getText(), textAreaReduce.getText());
 				
+				resultRows.clear();
 				for (ViewRow row : service.getView("beginner_new", "new", 1000)) {
-					textAreaResults.setText(textAreaResults.getText() + "\n" + row.getKey() + " : " + row.getValue());
+					resultRows.add(new CouchbaseResultRow(row.getKey(), row.getValue()));
 				}
 			}
 		});
@@ -184,7 +192,26 @@ public class App extends Application {
 		textAreaResults.setEditable(false);
 		paneResults.setContent(textAreaResults);
 		
-		pane.setBottom(paneResults);
+		// Table view 
+		table = new TableView<CouchbaseResultRow>();
+	    resultRows = FXCollections.observableArrayList();
+	    
+	    table.setEditable(false);
+	    table.setItems(resultRows);
+	    
+        TableColumn<CouchbaseResultRow, String> keyCol = new TableColumn<CouchbaseResultRow, String>("Key");
+        keyCol.setMinWidth(100);
+        keyCol.setCellValueFactory(
+                new PropertyValueFactory<CouchbaseResultRow, String>("key"));
+ 
+        TableColumn<CouchbaseResultRow, String> valueCol = new TableColumn<CouchbaseResultRow, String>("Value");
+        valueCol.setMinWidth(100);
+        valueCol.setCellValueFactory(
+                new PropertyValueFactory<CouchbaseResultRow, String>("result"));
+		
+        table.getColumns().addAll(keyCol, valueCol);
+        
+		pane.setBottom(table);
 		
         primaryStage.setScene(scene);
 		

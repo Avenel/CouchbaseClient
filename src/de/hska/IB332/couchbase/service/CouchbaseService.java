@@ -1,7 +1,12 @@
 package de.hska.IB332.couchbase.service;
 
+import java.io.IOException;
+import java.net.HttpURLConnection;
+import java.net.MalformedURLException;
 import java.net.URI;
+import java.net.URL;
 import java.util.ArrayList;
+import java.util.List;
 
 import com.couchbase.client.CouchbaseClient;
 import com.couchbase.client.CouchbaseConnectionFactory;
@@ -41,11 +46,20 @@ public class CouchbaseService {
 		ArrayList<URI> nodes = new ArrayList<URI>();
 
 	    // Add one or more nodes of your cluster (exchange the IP with yours)
-	    nodes.add(URI.create("http://"+this.url+":8091/pools"));
+		this.url = "http://" + this.url;
+	    nodes.add(URI.create(this.url + ":8091/pools"));
 	    
 	    // Try to connect to the client
+	    CouchbaseConnectionFactoryBuilder couchbaseConnectionFactoryBuilder = new CouchbaseConnectionFactoryBuilder();
+	    couchbaseConnectionFactoryBuilder.setOpTimeout(20000);
+	    couchbaseConnectionFactoryBuilder.setViewTimeout(30000);
+	    couchbaseConnectionFactoryBuilder.setTimeoutExceptionThreshold(10000);
+	    
+	    CouchbaseConnectionFactory connFactory = couchbaseConnectionFactoryBuilder.buildCouchbaseConnection(nodes, "world", "");
+
+	    
 	    this.client = null;
-	    client = new CouchbaseClient(nodes, "beer-sample", this.user, this.password);
+	    client = new CouchbaseClient(connFactory);//nodes, "beer-sample", this.user, this.password);
 	}
 	
 	/**
@@ -62,13 +76,13 @@ public class CouchbaseService {
 	 * @param bucket
 	 * @param viewName
 	 */
-	public void createView(String ddName, String viewName, String mapFunction, String reduceFunction) {
-		DesignDocument designDoc = new DesignDocument(ddName);		
-		
-		ViewDesign viewDesign = new ViewDesign(viewName, mapFunction, reduceFunction);
-		designDoc.getViews().add(viewDesign);
-		
-		this.client.createDesignDoc(designDoc);
+	public void createView(String ddName, String viewName, String mapFunction, String reduceFunction) {		
+		DesignDocument designDoc = new DesignDocument(ddName);
+
+		ViewDesign view = new ViewDesign(viewName, mapFunction, reduceFunction);
+		designDoc.setView(view);
+
+		client.createDesignDoc(designDoc);
 	}
 	
 	/**
@@ -78,13 +92,19 @@ public class CouchbaseService {
 	 * @param limit
 	 * @return ViewResponse result
 	 */
-	public ViewResponse getView(String ddName, String viewName, int limit) {
+	public ViewResponse getView(String ddName, String viewName, int limit) {		
+		// 1: Get the View definition from the cluster
 		View view = client.getView(ddName, viewName);
-		Query query = new Query();
-		query.setIncludeDocs(true).setLimit(limit);
-		query.setStale( Stale.FALSE );
 		
+		// 2: Create the query object
+		Query query = new Query();
+		query.setLimit(limit);
+		query.setGroup(true);
+		query.setStale(Stale.FALSE);
+
+		// 3: Query the cluster with the view and query information
 		ViewResponse result = client.query(view, query);
+		
 		return result;
 	}
 	

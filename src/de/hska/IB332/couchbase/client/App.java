@@ -1,15 +1,14 @@
 package de.hska.IB332.couchbase.client;
 
 import java.io.BufferedReader;
-import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 
+import com.couchbase.client.protocol.views.View;
 import com.couchbase.client.protocol.views.ViewResponse;
 import com.couchbase.client.protocol.views.ViewRow;
 
@@ -24,53 +23,46 @@ public class App {
 	 * @param args
 	 */
 	public static void main(String[] args) {
+		CouchbaseService service = null;
 		try {
 			// get connection to database
-			CouchbaseService service = CouchbaseServiceFactory.getService(
-					"localhost", "", "");
+			service = CouchbaseServiceFactory.getService(
+					 "10.75.41.231", "Administrator", "adminadmin");
 
 			// Load and check mapFunction for errors
 			// load mapFunction from file
 			String mapFunctionPath = "C:\\Projects\\CouchbaseClient\\lib\\jsl\\mapFunction.js";
 			String mapFunction = readFile(mapFunctionPath, Charset.defaultCharset());
 			System.out.println(mapFunction);
-			try {
-				System.out.println(checkJavaScriptFile(mapFunctionPath));
-			} catch (Exception e) {
-				e.printStackTrace();
-				System.exit(1);
-			}
+			System.out.println(checkJavaScriptFile(mapFunctionPath));
 
 			// Load and check reduceFunction for errors
 			// load reduceFunction from file
 			String reduceFunctionPath = "C:\\Projects\\CouchbaseClient\\lib\\jsl\\reduceFunction.js";
 			String reduceFunction = readFile(reduceFunctionPath, Charset.defaultCharset());
 			System.out.println(reduceFunction);
-			try {
-				System.out.println(checkJavaScriptFile(reduceFunctionPath));
-			} catch (Exception e) {
-				e.printStackTrace();
-				System.exit(1);
-			}
+			System.out.println(checkJavaScriptFile(reduceFunctionPath));
 
 			// create simple view
-			String designDocumentName = "beerTwo";
-			String viewName = "by_name";
-			service.createView(designDocumentName, viewName, mapFunction,
-					reduceFunction);
+			String designDocumentName = "beginner";
+			String viewName = "user_test";
 
-			// get simple view
+			service.createView(designDocumentName, viewName, mapFunction, reduceFunction);
+			
+//			// get simple view
 			ViewResponse response = service.getView(designDocumentName,
-					viewName, 10);
-
-			// Print value (5891 = beer count)
+					viewName, 1000);
+//
+//			// Print value (5891 = beer count)
 			for (ViewRow row : response) {
-				System.out.println("Beer count: " + row.getValue());
+				System.out.println(row.getKey() + ": " + row.getValue());
 			}
-
+			
 			service.closeConnection();
 		} catch (Exception e) {
 			e.printStackTrace();
+			service.closeConnection();
+			System.exit(1);
 		}
 	}
 

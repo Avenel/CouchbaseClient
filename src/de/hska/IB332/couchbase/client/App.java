@@ -22,6 +22,7 @@ import javafx.scene.control.Menu;
 import javafx.scene.control.MenuBar;
 import javafx.scene.control.MenuItem;
 import javafx.scene.control.ProgressIndicator;
+import javafx.scene.control.SingleSelectionModel;
 import javafx.scene.control.Tab;
 import javafx.scene.control.TabPane;
 import javafx.scene.control.TableColumn;
@@ -44,14 +45,16 @@ import de.hska.IB332.couchbase.service.CouchbaseServiceFactory;
 
 public class App extends Application {
 	
+	private static TabPane tabPane;
 	private static TextArea textAreaReduce;
 	private static TextArea textAreaMap;
 	private static TextArea textAreaResults;
+	private static TextArea textAreaErrors;
 	private static CouchbaseService service;
 	private static ObservableList<CouchbaseResultRow> resultRows;
 	private static TableView<CouchbaseResultRow> table;
 	private static ProgressIndicator progressIndicator;
-	private static TextArea textAreaErrors;
+	
 	
 	/**
 	 * Starts the app. Read map/reduce functions from file, execute syntax checking, 
@@ -163,16 +166,22 @@ public class App extends Application {
 
 			@Override
 			public void handle(ActionEvent arg0) {
-				checkCode();
-				
-				service.createView("beginner_new", "new", textAreaMap.getText(), textAreaReduce.getText());
-				
-				resultRows.clear();
-				// get view, async
-				progressIndicator.visibleProperty().set(true);
-				HttpFuture<ViewResponse> futureViewResponse = service.getView("beginner_new", "new", 1000);
-				Thread fetchViewThread = new Thread(new AsyncGetViewCall(futureViewResponse, resultRows, progressIndicator, textAreaErrors));
-				fetchViewThread.start();
+				if (checkCode()) {
+					service.createView("beginner_new", "new", textAreaMap.getText(), textAreaReduce.getText());
+					
+					resultRows.clear();
+					// get view, async
+					progressIndicator.visibleProperty().set(true);
+					HttpFuture<ViewResponse> futureViewResponse = service.getView("beginner_new", "new", 1000);
+					Thread fetchViewThread = new Thread(new AsyncGetViewCall(futureViewResponse, resultRows, progressIndicator, textAreaErrors, tabPane));
+					fetchViewThread.start();
+					
+					SingleSelectionModel<Tab> selectionModel = tabPane.getSelectionModel();
+					selectionModel.select(0);
+				} else {
+					SingleSelectionModel<Tab> selectionModel = tabPane.getSelectionModel();
+					selectionModel.select(1);
+				}
 			}
 		});
 		tools.getItems().add(execute);
@@ -209,7 +218,7 @@ public class App extends Application {
 		pane.getCenter().getStyleClass().add("center-pane");
 		
 		// Tabs for result and javascript code check
-		TabPane tabPane = new TabPane();
+		tabPane = new TabPane();
 		
 		// Code Check Tab
 		Tab tabCodeCheck = new Tab();
@@ -282,20 +291,32 @@ public class App extends Application {
 	/**
 	 * Checks the code.
 	 */
-	private static void checkCode() {
+	private static boolean checkCode() {
 		try {
 			String mapFunctionPath =  "user_functions/mapFunction.js";
 			writeFile(mapFunctionPath, textAreaMap.getText());
 			String checkResult = checkJavaScriptFile(mapFunctionPath);
 			textAreaResults.setText(checkResult);
 			
+			if (!checkResult.contains("0 error(s), 0 warning(s)")) {
+				return false;
+			}
+			
 			String reduceFunctionPath = "user_functions/reduceFunction.js";
 			writeFile(reduceFunctionPath, textAreaReduce.getText());
 			checkResult = checkJavaScriptFile(reduceFunctionPath);
 			textAreaResults.setText(textAreaResults.getText() + "\n" + checkResult);
+			
+			if (!checkResult.contains("0 error(s), 0 warning(s)")) {
+				return false;
+			}
+			
+			return true;
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
+		
+		return false;
 	}
 	
 	private static void resetTextAreas() {

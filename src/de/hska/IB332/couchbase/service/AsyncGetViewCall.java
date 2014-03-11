@@ -11,6 +11,9 @@ import com.couchbase.client.protocol.views.ViewRow;
 import javafx.application.Platform;
 import javafx.collections.ObservableList;
 import javafx.scene.control.ProgressIndicator;
+import javafx.scene.control.SingleSelectionModel;
+import javafx.scene.control.Tab;
+import javafx.scene.control.TabPane;
 import javafx.scene.control.TextArea;
 import de.hska.IB332.couchbase.client.CouchbaseResultRow;
 
@@ -20,13 +23,16 @@ public class AsyncGetViewCall implements Runnable {
 	HttpFuture<ViewResponse> result;
 	ProgressIndicator progressIndicator;
 	TextArea textAreaErrors;
+	TabPane tabPane;
 	
 	
-	public AsyncGetViewCall(HttpFuture<ViewResponse> result, ObservableList<CouchbaseResultRow> resultRows, ProgressIndicator progressIndicator, TextArea textAreaErrors) {
+	public AsyncGetViewCall(HttpFuture<ViewResponse> result, ObservableList<CouchbaseResultRow> resultRows, 
+							ProgressIndicator progressIndicator, TextArea textAreaErrors, TabPane tabPane) {
 		this.result = result;
 		this.resultRows = resultRows;
 		this.progressIndicator = progressIndicator;
 		this.textAreaErrors = textAreaErrors;
+		this.tabPane = tabPane;
 	}
 	
 	@Override
@@ -43,12 +49,15 @@ public class AsyncGetViewCall implements Runnable {
 		} catch (InterruptedException e) {
 			hideProgressIndicator();
 			this.textAreaErrors.setText(e.getMessage());
+			showConsole();
 		} catch (ExecutionException e) {
 			hideProgressIndicator();
 			this.textAreaErrors.setText(e.getMessage());
+			showConsole();
 		} catch (TimeoutException e) {
 			hideProgressIndicator();
 			this.textAreaErrors.setText(e.getMessage());
+			showConsole();
 		} 
 		
 		this.textAreaErrors.setText("Request ist erfolgreich gewesen. Rows: " + this.resultRows.size());
@@ -65,6 +74,9 @@ public class AsyncGetViewCall implements Runnable {
 	   });
 	}
 
-	
+	private void showConsole() {
+		SingleSelectionModel<Tab> selectionModel = tabPane.getSelectionModel();
+		selectionModel.select(2);
+	}
 	
 }

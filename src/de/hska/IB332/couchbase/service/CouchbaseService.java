@@ -1,16 +1,12 @@
 package de.hska.IB332.couchbase.service;
 
-import java.io.IOException;
-import java.net.HttpURLConnection;
-import java.net.MalformedURLException;
 import java.net.URI;
-import java.net.URL;
 import java.util.ArrayList;
-import java.util.List;
 
 import com.couchbase.client.CouchbaseClient;
 import com.couchbase.client.CouchbaseConnectionFactory;
 import com.couchbase.client.CouchbaseConnectionFactoryBuilder;
+import com.couchbase.client.internal.HttpFuture;
 import com.couchbase.client.protocol.views.DesignDocument;
 import com.couchbase.client.protocol.views.Query;
 import com.couchbase.client.protocol.views.Stale;
@@ -20,7 +16,7 @@ import com.couchbase.client.protocol.views.ViewResponse;
 
 public class CouchbaseService {
 	
-	private String url, user, password;
+	private String url;
 	private CouchbaseClient client;
 	
 	/**
@@ -32,8 +28,6 @@ public class CouchbaseService {
 	 */
 	public CouchbaseService(String url, String user, String password) throws Exception {
 		this.url = url;
-		this.user = user;
-		this.password = password;
 		connect();
 	}
 	
@@ -92,7 +86,7 @@ public class CouchbaseService {
 	 * @param limit
 	 * @return ViewResponse result
 	 */
-	public ViewResponse getView(String ddName, String viewName, int limit) {		
+	public HttpFuture<ViewResponse> getView(String ddName, String viewName, int limit) {		
 		// 1: Get the View definition from the cluster
 		View view = client.getView(ddName, viewName);
 		
@@ -103,7 +97,7 @@ public class CouchbaseService {
 		query.setStale(Stale.FALSE);
 
 		// 3: Query the cluster with the view and query information
-		ViewResponse result = client.query(view, query);
+		HttpFuture<ViewResponse> result = client.asyncQuery(view, query);
 		
 		return result;
 	}

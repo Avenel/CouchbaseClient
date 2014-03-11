@@ -17,20 +17,28 @@ import javafx.collections.ObservableList;
 import javafx.event.ActionEvent;
 import javafx.event.EventHandler;
 import javafx.scene.Scene;
+import javafx.scene.control.Button;
 import javafx.scene.control.Menu;
 import javafx.scene.control.MenuBar;
 import javafx.scene.control.MenuItem;
+import javafx.scene.control.ProgressIndicator;
+import javafx.scene.control.Tab;
+import javafx.scene.control.TabPane;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TitledPane;
+import javafx.scene.control.ToolBar;
 import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.VBox;
+import javafx.scene.text.Font;
 import javafx.stage.Stage;
 
-import com.couchbase.client.protocol.views.ViewRow;
+import com.couchbase.client.internal.HttpFuture;
+import com.couchbase.client.protocol.views.ViewResponse;
 
+import de.hska.IB332.couchbase.service.AsyncGetViewCall;
 import de.hska.IB332.couchbase.service.CouchbaseService;
 import de.hska.IB332.couchbase.service.CouchbaseServiceFactory;
 
@@ -42,6 +50,8 @@ public class App extends Application {
 	private static CouchbaseService service;
 	private static ObservableList<CouchbaseResultRow> resultRows;
 	private static TableView<CouchbaseResultRow> table;
+	private static ProgressIndicator progressIndicator;
+	private static TextArea textAreaErrors;
 	
 	/**
 	 * Starts the app. Read map/reduce functions from file, execute syntax checking, 
@@ -51,8 +61,6 @@ public class App extends Application {
 	public static void main(String[] args) {
 		initService();
 		launch(args);
-		
-		System.exit(0);
 	}
 
 	/**
@@ -88,7 +96,7 @@ public class App extends Application {
 	 */
 	static String checkJavaScriptFile(String path) throws IOException {
 		Process process = new ProcessBuilder(
-				"C:\\Projects\\CouchbaseClient\\lib\\jsl\\jsl.exe",
+				"lib/jsl/jsl.exe",
 				"-process",
 				path)
 				.start();
@@ -108,14 +116,17 @@ public class App extends Application {
 		return title + lines;
 	}
 
-	
 	/**
 	 * Setup GUI.
 	 */
 	@Override
 	public void start(Stage primaryStage) throws Exception {
-		primaryStage.setWidth(1024);
-		primaryStage.setHeight(768);
+		// Load Font-Awesome icons
+		Font.loadFont(App.class.getClassLoader().getResource("de/hska/IB332/couchbase/client/fonts/fontawesome-webfont.ttf").
+	            toExternalForm(), 12);
+
+		primaryStage.setWidth(1280);
+		primaryStage.setHeight(1024);
 		primaryStage.setTitle("Couchbase Labor Client");
 		
 		// ViewBox
@@ -126,28 +137,11 @@ public class App extends Application {
 		scene.getStylesheets().add("/de/hska/IB332/couchbase/client/layoutstyles.css");
 		
     	// MenuBar
+		VBox wrapperMenu = new VBox();
 		MenuBar menuBar = new MenuBar();
 		
 		Menu fileMenu = new Menu("_Datei");
 		fileMenu.setMnemonicParsing(true);
-		
-		// run code
-		MenuItem menuItemRun = new MenuItem("Ausführen");
-		menuItemRun.setOnAction(new EventHandler<ActionEvent>() {
-
-			@Override
-			public void handle(ActionEvent arg0) {
-				checkCode();
-				
-				service.createView("beginner_new", "new", textAreaMap.getText(), textAreaReduce.getText());
-				
-				resultRows.clear();
-				for (ViewRow row : service.getView("beginner_new", "new", 1000)) {
-					resultRows.add(new CouchbaseResultRow(row.getKey(), row.getValue()));
-				}
-			}
-		});
-		fileMenu.getItems().add(menuItemRun);
 		
 		// close
 		MenuItem menuItemClose = new MenuItem("Schließen");
@@ -160,12 +154,40 @@ public class App extends Application {
 		fileMenu.getItems().add(menuItemClose);
 		
 		menuBar.getMenus().add(fileMenu);
-		pane.setTop(menuBar);
+		
+		// Toolbar
+		ToolBar tools = new ToolBar();
+		
+		Button execute = AwesomeFactory.createIconButton(AwesomeIcons.ICON_PLAY_CIRCLE, "Ausführen", 30);
+		execute.setOnAction(new EventHandler<ActionEvent>() {
+
+			@Override
+			public void handle(ActionEvent arg0) {
+				checkCode();
+				
+				service.createView("beginner_new", "new", textAreaMap.getText(), textAreaReduce.getText());
+				
+				resultRows.clear();
+				// get view, async
+				progressIndicator.visibleProperty().set(true);
+				HttpFuture<ViewResponse> futureViewResponse = service.getView("beginner_new", "new", 1000);
+				Thread fetchViewThread = new Thread(new AsyncGetViewCall(futureViewResponse, resultRows, progressIndicator, textAreaErrors));
+				fetchViewThread.start();
+			}
+		});
+		tools.getItems().add(execute);
+		
+		progressIndicator = new ProgressIndicator();
+		progressIndicator.visibleProperty().set(false);
+		tools.getItems().add(progressIndicator);
+		
+		wrapperMenu.getChildren().addAll(menuBar, tools);
+		pane.setTop(wrapperMenu);
 		
 		// Textarea for map function
 		VBox wrapperMapReduceFunctions = new VBox();
 		TitledPane paneMapFunction = new TitledPane();
-		paneMapFunction.setText("Map Funktion:");
+		paneMapFunction.setText("Map Funktion");
 
 		textAreaMap = new TextArea();
 		textAreaMap.getStyleClass().add("map-reduce-area");
@@ -174,25 +196,35 @@ public class App extends Application {
 
 		// Textarea for reduce function
 		TitledPane paneReduceFunction = new TitledPane();
-		paneReduceFunction.setText("Reduce Funktion:");
+		paneReduceFunction.setText("Reduce Funktion");
 
 		textAreaReduce = new TextArea();
 		textAreaReduce.getStyleClass().add("map-reduce-area");
 		paneReduceFunction.setContent(textAreaReduce);
 		wrapperMapReduceFunctions.getChildren().add(paneReduceFunction);
 		
+		
+		resetTextAreas();
 		pane.setCenter(wrapperMapReduceFunctions);
 		pane.getCenter().getStyleClass().add("center-pane");
 		
-		// Result
-		TitledPane paneResults = new TitledPane();
-		paneResults.setText("Ergebnis");
+		// Tabs for result and javascript code check
+		TabPane tabPane = new TabPane();
+		
+		// Code Check Tab
+		Tab tabCodeCheck = new Tab();
+		tabCodeCheck.setText("JavaScript Check");
+		tabCodeCheck.setClosable(false);
 		
 		textAreaResults = new TextArea();
 		textAreaResults.setEditable(false);
-		paneResults.setContent(textAreaResults);
+		tabCodeCheck.setContent(textAreaResults);
 		
-		// Table view 
+		// Results Tab with a table view 
+		Tab tabResults = new Tab();
+		tabResults.setText("Ergebnis");
+		tabResults.setClosable(false);
+		
 		table = new TableView<CouchbaseResultRow>();
 	    resultRows = FXCollections.observableArrayList();
 	    
@@ -211,13 +243,29 @@ public class App extends Application {
 		
         table.getColumns().addAll(keyCol, valueCol);
         
-		pane.setBottom(table);
+        tabResults.setContent(table);
+        
+        // Error Console
+        Tab tabConsole = new Tab();
+        tabConsole.setText("Console");
+        tabConsole.setClosable(false);
+		
+		textAreaErrors = new TextArea();
+		textAreaErrors.setEditable(false);
+		tabConsole.setContent(textAreaErrors);
+        
+        tabPane.getTabs().addAll(tabResults, tabCodeCheck, tabConsole);
+        
+		pane.setBottom(tabPane);
 		
         primaryStage.setScene(scene);
 		
 		primaryStage.show();
 	}
 	
+	/**
+	 * Initialize Couchbase Service
+	 */
 	private static void initService() {
 		service = null;
 		try {
@@ -231,14 +279,17 @@ public class App extends Application {
 		}
 	}
 	
+	/**
+	 * Checks the code.
+	 */
 	private static void checkCode() {
 		try {
-			String mapFunctionPath = "C:\\Projects\\CouchbaseClient\\lib\\jsl\\mapFunction.js";
+			String mapFunctionPath =  "user_functions/mapFunction.js";
 			writeFile(mapFunctionPath, textAreaMap.getText());
 			String checkResult = checkJavaScriptFile(mapFunctionPath);
 			textAreaResults.setText(checkResult);
 			
-			String reduceFunctionPath = "C:\\Projects\\CouchbaseClient\\lib\\jsl\\reduceFunction.js";
+			String reduceFunctionPath = "user_functions/reduceFunction.js";
 			writeFile(reduceFunctionPath, textAreaReduce.getText());
 			checkResult = checkJavaScriptFile(reduceFunctionPath);
 			textAreaResults.setText(textAreaResults.getText() + "\n" + checkResult);
@@ -246,4 +297,10 @@ public class App extends Application {
 			e.printStackTrace();
 		}
 	}
+	
+	private static void resetTextAreas() {
+		textAreaMap.setText("function(doc, meta) {\n}");
+		textAreaReduce.setText("function(key, values, rereduce) {\n}");
+	}
+	
 }

@@ -1,3 +1,3 @@
 function(doc, meta) {
-	emit(doc.Name, null);
+	emit(doc.Name, 1);
 }

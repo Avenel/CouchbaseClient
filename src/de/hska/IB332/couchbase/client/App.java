@@ -1,9 +1,14 @@
 package de.hska.IB332.couchbase.client;
 
 import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
 import java.io.PrintWriter;
 import java.io.UnsupportedEncodingException;
 import java.nio.ByteBuffer;
@@ -34,6 +39,7 @@ import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.VBox;
 import javafx.scene.text.Font;
+import javafx.stage.FileChooser;
 import javafx.stage.Stage;
 
 import com.couchbase.client.internal.HttpFuture;
@@ -44,21 +50,21 @@ import de.hska.IB332.couchbase.service.CouchbaseService;
 import de.hska.IB332.couchbase.service.CouchbaseServiceFactory;
 
 public class App extends Application {
-	
-	private static TabPane tabPane;
-	private static TextArea textAreaReduce;
-	private static TextArea textAreaMap;
-	private static TextArea textAreaResults;
-	private static TextArea textAreaErrors;
+
+	private static TabPane tabPaneBottom;
+	private static TabPane tabPaneCenter;
+	private static TextArea currentTextAreaResults;
+	private static TextArea currentTextAreaErrors;
 	private static CouchbaseService service;
 	private static ObservableList<CouchbaseResultRow> resultRows;
 	private static TableView<CouchbaseResultRow> table;
 	private static ProgressIndicator progressIndicator;
-	
-	
+
 	/**
-	 * Starts the app. Read map/reduce functions from file, execute syntax checking, 
-	 * creates view on Couchbase Server and get the Result of the view.
+	 * Starts the app. Read map/reduce functions from file, execute syntax
+	 * checking, creates view on Couchbase Server and get the Result of the
+	 * view.
+	 * 
 	 * @param args
 	 */
 	public static void main(String[] args) {
@@ -68,6 +74,7 @@ public class App extends Application {
 
 	/**
 	 * Read file into string.
+	 * 
 	 * @param path
 	 * @param encoding
 	 * @return String
@@ -77,45 +84,45 @@ public class App extends Application {
 		byte[] encoded = Files.readAllBytes(Paths.get(path));
 		return encoding.decode(ByteBuffer.wrap(encoded)).toString();
 	}
-	
+
 	/**
 	 * Writes file to disk.
+	 * 
 	 * @param path
 	 * @param content
 	 * @throws FileNotFoundException
 	 * @throws UnsupportedEncodingException
 	 */
-	static void writeFile(String path, String content) throws FileNotFoundException, UnsupportedEncodingException {
+	static void writeFile(String path, String content)
+			throws FileNotFoundException, UnsupportedEncodingException {
 		PrintWriter writer = new PrintWriter(path, "UTF-8");
 		writer.println(content);
 		writer.close();
 	}
-	
+
 	/**
 	 * Check given JavaScript file for Syntax errors, by using JSL
+	 * 
 	 * @param path
 	 * @return String result
 	 * @throws IOException
 	 */
 	static String checkJavaScriptFile(String path) throws IOException {
-		Process process = new ProcessBuilder(
-				"lib/jsl/jsl.exe",
-				"-process",
-				path)
-				.start();
+		Process process = new ProcessBuilder("lib/jsl/jsl.exe", "-process",
+				path).start();
 
 		// get output from JSL
 		String title = "Checking JavaScriptFile: " + path + "\n";
 		BufferedReader input = new BufferedReader(new InputStreamReader(
 				process.getInputStream()));
-		
+
 		String lines = "";
 		String line;
 		while ((line = input.readLine()) != null) {
 			lines += line + "\n";
 		}
 		input.close();
-		
+
 		return title + lines;
 	}
 
@@ -123,29 +130,110 @@ public class App extends Application {
 	 * Setup GUI.
 	 */
 	@Override
-	public void start(Stage primaryStage) throws Exception {
+	public void start(final Stage primaryStage) throws Exception {
 		// Load Font-Awesome icons
-		Font.loadFont(App.class.getClassLoader().getResource("de/hska/IB332/couchbase/client/fonts/fontawesome-webfont.ttf").
-	            toExternalForm(), 12);
+		Font.loadFont(
+				App.class
+						.getClassLoader()
+						.getResource(
+								"de/hska/IB332/couchbase/client/fonts/fontawesome-webfont.ttf")
+						.toExternalForm(), 12);
 
 		primaryStage.setWidth(1280);
 		primaryStage.setHeight(1024);
 		primaryStage.setTitle("Couchbase Labor Client");
-		
+
 		// ViewBox
 		BorderPane pane = new BorderPane();
-		
+
 		// Setting up scene
 		Scene scene = new Scene(pane);
-		scene.getStylesheets().add("/de/hska/IB332/couchbase/client/layoutstyles.css");
-		
-    	// MenuBar
+		scene.getStylesheets().add(
+				"/de/hska/IB332/couchbase/client/layoutstyles.css");
+
+		// MenuBar
 		VBox wrapperMenu = new VBox();
 		MenuBar menuBar = new MenuBar();
-		
+
 		Menu fileMenu = new Menu("_Datei");
 		fileMenu.setMnemonicParsing(true);
+
+		// new
+		MenuItem menuItemNew = new MenuItem("Neu");
+		menuItemNew.setOnAction(new EventHandler<ActionEvent>() {
+			@Override
+			public void handle(ActionEvent arg0) {
+				tabPaneCenter.getTabs().add(
+						new MapReduceDocumentTab(new MapReduceDocument("untitled", "untitled-"+ tabPaneCenter.getTabs().size())));
+			}
+		});
+
+		// save
+		MenuItem menuItemSave = new MenuItem("Speichern...");
+		menuItemSave.setOnAction(new EventHandler<ActionEvent>() {
+			@Override
+			public void handle(ActionEvent arg0) {
+				FileChooser fileChooser = new FileChooser();
+
+				// Set extension filter
+				FileChooser.ExtensionFilter extFilter = new FileChooser.ExtensionFilter(
+						"MRDoc files (*.mrdoc)", "*.mrdoc");
+				fileChooser.getExtensionFilters().add(extFilter);
+
+				// Show save file dialog
+				File file = fileChooser.showSaveDialog(primaryStage);
+
+				try {
+					FileOutputStream fileOut = new FileOutputStream(file);
+					ObjectOutputStream out = new ObjectOutputStream(fileOut);
+
+					SingleSelectionModel<Tab> selectionModel = tabPaneCenter
+							.getSelectionModel();
+					out.writeObject(((MapReduceDocumentTab)selectionModel.getSelectedItem()).getDocument());
+					out.close();
+					fileOut.close();
+				} catch (IOException ex) {
+					ex.printStackTrace();
+				}
+			}
+		});
 		
+		// load
+		MenuItem menuItemLoad = new MenuItem("Laden...");
+		menuItemLoad.setOnAction(new EventHandler<ActionEvent>() {
+			@Override
+			public void handle(ActionEvent arg0) {
+			      try
+			      {
+			    	  FileChooser fileChooser = new FileChooser();
+
+					// Set extension filter
+					FileChooser.ExtensionFilter extFilter = new FileChooser.ExtensionFilter(
+							"MRDoc files (*.mrdoc)", "*.mrdoc");
+					fileChooser.getExtensionFilters().add(extFilter);
+					// Show save file dialog
+					File file = fileChooser.showOpenDialog(primaryStage);
+			    	  
+			         FileInputStream fileIn = new FileInputStream(file);
+			         ObjectInputStream in = new ObjectInputStream(fileIn);
+			         MapReduceDocument mapReduceDocument = (MapReduceDocument) in.readObject();
+			         in.close();
+			         fileIn.close();
+			         
+			         tabPaneCenter.getTabs().add(new MapReduceDocumentTab(mapReduceDocument));
+			      }catch(IOException i)
+			      {
+			         i.printStackTrace();
+			         return;
+			      }catch(ClassNotFoundException c)
+			      {
+			         System.out.println("Employee class not found");
+			         c.printStackTrace();
+			         return;
+			      }
+			}
+		});
+
 		// close
 		MenuItem menuItemClose = new MenuItem("Schließen");
 		menuItemClose.setOnAction(new EventHandler<ActionEvent>() {
@@ -154,124 +242,120 @@ public class App extends Application {
 				System.exit(0);
 			}
 		});
-		fileMenu.getItems().add(menuItemClose);
-		
+
+		fileMenu.getItems().addAll(menuItemNew, menuItemSave, menuItemLoad, menuItemClose);
+
 		menuBar.getMenus().add(fileMenu);
-		
+
 		// Toolbar
 		ToolBar tools = new ToolBar();
-		
-		Button execute = AwesomeFactory.createIconButton(AwesomeIcons.ICON_PLAY_CIRCLE, "Ausführen", 30);
+
+		Button execute = AwesomeFactory.createIconButton(
+				AwesomeIcons.ICON_PLAY_CIRCLE, "Ausführen", 30);
 		execute.setOnAction(new EventHandler<ActionEvent>() {
 
 			@Override
 			public void handle(ActionEvent arg0) {
 				if (checkCode()) {
-					service.createView("beginner_new", "new", textAreaMap.getText(), textAreaReduce.getText());
-					
+					service.createView("beginner_new", "new",
+							getCurrentTextAreaMap().getText(),
+							getCurrentTextAreaReduce().getText());
+
 					resultRows.clear();
 					// get view, async
 					progressIndicator.visibleProperty().set(true);
-					HttpFuture<ViewResponse> futureViewResponse = service.getView("beginner_new", "new", 1000);
-					Thread fetchViewThread = new Thread(new AsyncGetViewCall(futureViewResponse, resultRows, progressIndicator, textAreaErrors, tabPane));
+					HttpFuture<ViewResponse> futureViewResponse = service
+							.getView("beginner_new", "new", 1000);
+					Thread fetchViewThread = new Thread(new AsyncGetViewCall(
+							futureViewResponse, resultRows, progressIndicator,
+							currentTextAreaErrors, tabPaneBottom));
 					fetchViewThread.start();
-					
-					SingleSelectionModel<Tab> selectionModel = tabPane.getSelectionModel();
+
+					SingleSelectionModel<Tab> selectionModel = tabPaneBottom
+							.getSelectionModel();
 					selectionModel.select(0);
 				} else {
-					SingleSelectionModel<Tab> selectionModel = tabPane.getSelectionModel();
+					SingleSelectionModel<Tab> selectionModel = tabPaneBottom
+							.getSelectionModel();
 					selectionModel.select(1);
 				}
 			}
 		});
 		tools.getItems().add(execute);
-		
+
 		progressIndicator = new ProgressIndicator();
 		progressIndicator.visibleProperty().set(false);
 		tools.getItems().add(progressIndicator);
-		
+
 		wrapperMenu.getChildren().addAll(menuBar, tools);
 		pane.setTop(wrapperMenu);
-		
+
 		// Textarea for map function
-		VBox wrapperMapReduceFunctions = new VBox();
-		TitledPane paneMapFunction = new TitledPane();
-		paneMapFunction.setText("Map Funktion");
+		tabPaneCenter = new TabPane();
+		tabPaneCenter.getStyleClass().add("tab-pane-center");
 
-		textAreaMap = new TextArea();
-		textAreaMap.getStyleClass().add("map-reduce-area");
-		paneMapFunction.setContent(textAreaMap);
-		wrapperMapReduceFunctions.getChildren().add(paneMapFunction);
+		tabPaneCenter.getTabs().add(new MapReduceDocumentTab(new MapReduceDocument("untitled", "untitled")));
 
-		// Textarea for reduce function
-		TitledPane paneReduceFunction = new TitledPane();
-		paneReduceFunction.setText("Reduce Funktion");
+		pane.setCenter(tabPaneCenter);
+		pane.getCenter().getStyleClass().add("pane-center");
 
-		textAreaReduce = new TextArea();
-		textAreaReduce.getStyleClass().add("map-reduce-area");
-		paneReduceFunction.setContent(textAreaReduce);
-		wrapperMapReduceFunctions.getChildren().add(paneReduceFunction);
-		
-		
-		resetTextAreas();
-		pane.setCenter(wrapperMapReduceFunctions);
-		pane.getCenter().getStyleClass().add("center-pane");
-		
 		// Tabs for result and javascript code check
-		tabPane = new TabPane();
-		
+		tabPaneBottom = new TabPane();
+
 		// Code Check Tab
 		Tab tabCodeCheck = new Tab();
 		tabCodeCheck.setText("JavaScript Check");
 		tabCodeCheck.setClosable(false);
-		
-		textAreaResults = new TextArea();
-		textAreaResults.setEditable(false);
-		tabCodeCheck.setContent(textAreaResults);
-		
-		// Results Tab with a table view 
+
+		currentTextAreaResults = new TextArea();
+		currentTextAreaResults.setEditable(false);
+		tabCodeCheck.setContent(currentTextAreaResults);
+
+		// Results Tab with a table view
 		Tab tabResults = new Tab();
 		tabResults.setText("Ergebnis");
 		tabResults.setClosable(false);
-		
+
 		table = new TableView<CouchbaseResultRow>();
-	    resultRows = FXCollections.observableArrayList();
-	    
-	    table.setEditable(false);
-	    table.setItems(resultRows);
-	    
-        TableColumn<CouchbaseResultRow, String> keyCol = new TableColumn<CouchbaseResultRow, String>("Key");
-        keyCol.setMinWidth(100);
-        keyCol.setCellValueFactory(
-                new PropertyValueFactory<CouchbaseResultRow, String>("key"));
- 
-        TableColumn<CouchbaseResultRow, String> valueCol = new TableColumn<CouchbaseResultRow, String>("Value");
-        valueCol.setMinWidth(100);
-        valueCol.setCellValueFactory(
-                new PropertyValueFactory<CouchbaseResultRow, String>("result"));
-		
-        table.getColumns().addAll(keyCol, valueCol);
-        
-        tabResults.setContent(table);
-        
-        // Error Console
-        Tab tabConsole = new Tab();
-        tabConsole.setText("Console");
-        tabConsole.setClosable(false);
-		
-		textAreaErrors = new TextArea();
-		textAreaErrors.setEditable(false);
-		tabConsole.setContent(textAreaErrors);
-        
-        tabPane.getTabs().addAll(tabResults, tabCodeCheck, tabConsole);
-        
-		pane.setBottom(tabPane);
-		
-        primaryStage.setScene(scene);
-		
+		resultRows = FXCollections.observableArrayList();
+
+		table.setEditable(false);
+		table.setItems(resultRows);
+
+		TableColumn<CouchbaseResultRow, String> keyCol = new TableColumn<CouchbaseResultRow, String>(
+				"Key");
+		keyCol.setMinWidth(100);
+		keyCol.setCellValueFactory(new PropertyValueFactory<CouchbaseResultRow, String>(
+				"key"));
+
+		TableColumn<CouchbaseResultRow, String> valueCol = new TableColumn<CouchbaseResultRow, String>(
+				"Value");
+		valueCol.setMinWidth(100);
+		valueCol.setCellValueFactory(new PropertyValueFactory<CouchbaseResultRow, String>(
+				"result"));
+
+		table.getColumns().addAll(keyCol, valueCol);
+
+		tabResults.setContent(table);
+
+		// Error Console
+		Tab tabConsole = new Tab();
+		tabConsole.setText("Console");
+		tabConsole.setClosable(false);
+
+		currentTextAreaErrors = new TextArea();
+		currentTextAreaErrors.setEditable(false);
+		tabConsole.setContent(currentTextAreaErrors);
+
+		tabPaneBottom.getTabs().addAll(tabResults, tabCodeCheck, tabConsole);
+
+		pane.setBottom(tabPaneBottom);
+
+		primaryStage.setScene(scene);
+
 		primaryStage.show();
 	}
-	
+
 	/**
 	 * Initialize Couchbase Service
 	 */
@@ -279,49 +363,57 @@ public class App extends Application {
 		service = null;
 		try {
 			// get connection to database
-			service = CouchbaseServiceFactory.getService(
-					 "10.75.41.231", "Administrator", "adminadmin");
+			service = CouchbaseServiceFactory.getService("10.75.41.231",
+					"Administrator", "adminadmin");
 		} catch (Exception e) {
 			e.printStackTrace();
 			service.closeConnection();
 			System.exit(1);
 		}
 	}
-	
+
 	/**
 	 * Checks the code.
 	 */
 	private static boolean checkCode() {
 		try {
-			String mapFunctionPath =  "user_functions/mapFunction.js";
-			writeFile(mapFunctionPath, textAreaMap.getText());
+			String mapFunctionPath = "user_functions/mapFunction.js";
+			writeFile(mapFunctionPath, getCurrentTextAreaMap().getText());
 			String checkResult = checkJavaScriptFile(mapFunctionPath);
-			textAreaResults.setText(checkResult);
-			
+			currentTextAreaResults.setText(checkResult);
+
 			if (!checkResult.contains("0 error(s), 0 warning(s)")) {
 				return false;
 			}
-			
+
 			String reduceFunctionPath = "user_functions/reduceFunction.js";
-			writeFile(reduceFunctionPath, textAreaReduce.getText());
+			writeFile(reduceFunctionPath, getCurrentTextAreaReduce().getText());
 			checkResult = checkJavaScriptFile(reduceFunctionPath);
-			textAreaResults.setText(textAreaResults.getText() + "\n" + checkResult);
-			
+			currentTextAreaResults.setText(currentTextAreaResults.getText()
+					+ "\n" + checkResult);
+
 			if (!checkResult.contains("0 error(s), 0 warning(s)")) {
 				return false;
 			}
-			
+
 			return true;
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
-		
+
 		return false;
 	}
-	
-	private static void resetTextAreas() {
-		textAreaMap.setText("function(doc, meta) {\n}");
-		textAreaReduce.setText("function(key, values, rereduce) {\n}");
+
+	private static TextArea getCurrentTextAreaMap() {
+		Tab currentTab = tabPaneCenter.getSelectionModel().getSelectedItem();
+		return (TextArea) ((TitledPane) ((VBox) currentTab.getContent())
+				.getChildren().get(0)).getContent();
 	}
-	
+
+	private static TextArea getCurrentTextAreaReduce() {
+		Tab currentTab = tabPaneCenter.getSelectionModel().getSelectedItem();
+		return (TextArea) ((TitledPane) ((VBox) currentTab.getContent())
+				.getChildren().get(1)).getContent();
+	}
+
 }

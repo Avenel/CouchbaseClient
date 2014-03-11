@@ -1,4 +1,11 @@
-.center-pane {
+.tab-pane-center {
+}
+
+.pane-center {
+	
+}
+
+.vbox-map-reduce {
 	-fx-padding: 20px;
 	-fx-spacing: 20px;
 }

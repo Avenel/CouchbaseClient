@@ -21,11 +21,18 @@ import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.event.ActionEvent;
 import javafx.event.EventHandler;
+import javafx.geometry.Insets;
+import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
+import javafx.scene.control.Dialogs;
+import javafx.scene.control.Dialogs.DialogOptions;
+import javafx.scene.control.Dialogs.DialogResponse;
+import javafx.scene.control.Label;
 import javafx.scene.control.Menu;
 import javafx.scene.control.MenuBar;
 import javafx.scene.control.MenuItem;
+import javafx.scene.control.PasswordField;
 import javafx.scene.control.ProgressIndicator;
 import javafx.scene.control.SingleSelectionModel;
 import javafx.scene.control.Tab;
@@ -33,14 +40,22 @@ import javafx.scene.control.TabPane;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
 import javafx.scene.control.TextArea;
+import javafx.scene.control.TextField;
+import javafx.scene.control.TextInputControl;
 import javafx.scene.control.TitledPane;
 import javafx.scene.control.ToolBar;
 import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.GridPane;
 import javafx.scene.layout.VBox;
+import javafx.scene.layout.VBoxBuilder;
 import javafx.scene.text.Font;
+import javafx.scene.text.Text;
 import javafx.stage.FileChooser;
+import javafx.stage.Modality;
 import javafx.stage.Stage;
+import javafx.stage.StageStyle;
+import javafx.util.Callback;
 
 import com.couchbase.client.internal.HttpFuture;
 import com.couchbase.client.protocol.views.ViewResponse;
@@ -70,6 +85,8 @@ public class App extends Application {
 	public static void main(String[] args) {
 		initService();
 		launch(args);
+		
+		System.exit(0);
 	}
 
 	/**
@@ -159,12 +176,39 @@ public class App extends Application {
 		fileMenu.setMnemonicParsing(true);
 
 		// new
-		MenuItem menuItemNew = new MenuItem("Neu");
+		MenuItem menuItemNew = new MenuItem("Neu...");
 		menuItemNew.setOnAction(new EventHandler<ActionEvent>() {
 			@Override
 			public void handle(ActionEvent arg0) {
-				tabPaneCenter.getTabs().add(
-						new MapReduceDocumentTab(new MapReduceDocument("untitled", "untitled-"+ tabPaneCenter.getTabs().size())));
+				GridPane grid = new GridPane();
+				grid.setHgap(10);
+				grid.setVgap(10);
+				grid.setPadding(new Insets(0, 10, 0, 10));
+				final TextField designDocName = new TextField();
+				designDocName.setPromptText("DesignDocument Name");
+				final TextField viewName = new TextField();
+				viewName.setPromptText("View Name");
+
+				grid.add(new Label("Design Dokument:"), 0, 0);
+				grid.add(designDocName, 1, 0);
+				grid.add(new Label("View:"), 0, 1);
+				grid.add(viewName, 1, 1);
+
+				Callback<Void, Void> myCallback = new Callback<Void, Void>() {
+					@Override
+					  public Void call(Void param) {
+						if (designDocName.getText().compareTo("") != 0 && viewName.getText().compareTo("") != 0) {
+						    tabPaneCenter.getTabs().add(
+									new MapReduceDocumentTab(new MapReduceDocument(designDocName.getText(), viewName.getText())));
+						} else {
+							Dialogs.showErrorDialog(primaryStage, "Der Name des Design Dokuments und der View darf nicht leer sein.", "Das Dokument wurde nicht erstellt.", "Fehlermeldung");
+						}
+					    return null;
+					  }
+					};
+				
+				DialogResponse resp = Dialogs.showCustomDialog(primaryStage, grid, "Bitte geben Sie den Namen des Design Dokuments und der View ein.", "Neues MapReduce Dokument", DialogOptions.OK_CANCEL, myCallback);
+
 			}
 		});
 

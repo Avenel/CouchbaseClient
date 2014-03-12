@@ -1,5 +1,6 @@
 package de.hska.IB332.couchbase.client;
 
+import java.io.File;
 import java.io.Serializable;
 
 public class MapReduceDocument implements Serializable {
@@ -12,6 +13,7 @@ public class MapReduceDocument implements Serializable {
 	String reduceFunction;
 	String viewName;
 	String designDocName;
+	File targetFile;
 	
 	
 	public MapReduceDocument (String designDocName, String viewName) {
@@ -52,6 +54,14 @@ public class MapReduceDocument implements Serializable {
 	}
 	public void setDesignDocName(String designDocName) {
 		this.designDocName = designDocName;
+	}
+
+	public File getTargetFile() {
+		return targetFile;
+	}
+
+	public void setTargetFile(File targetFile) {
+		this.targetFile = targetFile;
 	}
 	
 	

@@ -17,12 +17,13 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 
 import javafx.application.Application;
+import javafx.beans.value.ChangeListener;
+import javafx.beans.value.ObservableValue;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.event.ActionEvent;
 import javafx.event.EventHandler;
 import javafx.geometry.Insets;
-import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.Dialogs;
@@ -32,7 +33,6 @@ import javafx.scene.control.Label;
 import javafx.scene.control.Menu;
 import javafx.scene.control.MenuBar;
 import javafx.scene.control.MenuItem;
-import javafx.scene.control.PasswordField;
 import javafx.scene.control.ProgressIndicator;
 import javafx.scene.control.SingleSelectionModel;
 import javafx.scene.control.Tab;
@@ -41,20 +41,19 @@ import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
-import javafx.scene.control.TextInputControl;
 import javafx.scene.control.TitledPane;
 import javafx.scene.control.ToolBar;
+import javafx.scene.control.Tooltip;
 import javafx.scene.control.cell.PropertyValueFactory;
+import javafx.scene.input.KeyCode;
+import javafx.scene.input.KeyCodeCombination;
+import javafx.scene.input.KeyCombination;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.VBox;
-import javafx.scene.layout.VBoxBuilder;
 import javafx.scene.text.Font;
-import javafx.scene.text.Text;
 import javafx.stage.FileChooser;
-import javafx.stage.Modality;
 import javafx.stage.Stage;
-import javafx.stage.StageStyle;
 import javafx.util.Callback;
 
 import com.couchbase.client.internal.HttpFuture;
@@ -177,6 +176,7 @@ public class App extends Application {
 
 		// new
 		MenuItem menuItemNew = new MenuItem("Neu...");
+		menuItemNew.setAccelerator(KeyCombination.keyCombination("Ctrl+N"));
 		menuItemNew.setOnAction(new EventHandler<ActionEvent>() {
 			@Override
 			public void handle(ActionEvent arg0) {
@@ -194,56 +194,33 @@ public class App extends Application {
 				grid.add(new Label("View:"), 0, 1);
 				grid.add(viewName, 1, 1);
 
-				Callback<Void, Void> myCallback = new Callback<Void, Void>() {
-					@Override
-					  public Void call(Void param) {
-						if (designDocName.getText().compareTo("") != 0 && viewName.getText().compareTo("") != 0) {
-						    tabPaneCenter.getTabs().add(
-									new MapReduceDocumentTab(new MapReduceDocument(designDocName.getText(), viewName.getText())));
-						} else {
-							Dialogs.showErrorDialog(primaryStage, "Der Name des Design Dokuments und der View darf nicht leer sein.", "Das Dokument wurde nicht erstellt.", "Fehlermeldung");
-						}
-					    return null;
-					  }
-					};
-				
-				DialogResponse resp = Dialogs.showCustomDialog(primaryStage, grid, "Bitte geben Sie den Namen des Design Dokuments und der View ein.", "Neues MapReduce Dokument", DialogOptions.OK_CANCEL, myCallback);
-
+				DialogResponse resp = Dialogs.showCustomDialog(primaryStage, grid, "Bitte geben Sie den Namen des Design Dokuments und der View ein.", "Neues MapReduce Dokument", DialogOptions.OK_CANCEL, null);
+				if (resp.compareTo(DialogResponse.OK) == 0) {
+					if (designDocName.getText().compareTo("") != 0 && viewName.getText().compareTo("") != 0) {
+					    tabPaneCenter.getTabs().add(
+								new MapReduceDocumentTab(new MapReduceDocument(designDocName.getText(), viewName.getText())));
+					    tabPaneCenter.getSelectionModel().selectLast();
+					    addOnChangedHandlerTabCenter();
+					} else {
+						Dialogs.showErrorDialog(primaryStage, "Der Name des Design Dokuments und der View darf nicht leer sein.", "Das Dokument wurde nicht erstellt.", "Fehlermeldung");
+					}
+				}
 			}
 		});
 
 		// save
 		MenuItem menuItemSave = new MenuItem("Speichern...");
+		menuItemSave.setAccelerator(KeyCombination.keyCombination("Ctrl+S"));
 		menuItemSave.setOnAction(new EventHandler<ActionEvent>() {
 			@Override
 			public void handle(ActionEvent arg0) {
-				FileChooser fileChooser = new FileChooser();
-
-				// Set extension filter
-				FileChooser.ExtensionFilter extFilter = new FileChooser.ExtensionFilter(
-						"MRDoc files (*.mrdoc)", "*.mrdoc");
-				fileChooser.getExtensionFilters().add(extFilter);
-
-				// Show save file dialog
-				File file = fileChooser.showSaveDialog(primaryStage);
-
-				try {
-					FileOutputStream fileOut = new FileOutputStream(file);
-					ObjectOutputStream out = new ObjectOutputStream(fileOut);
-
-					SingleSelectionModel<Tab> selectionModel = tabPaneCenter
-							.getSelectionModel();
-					out.writeObject(((MapReduceDocumentTab)selectionModel.getSelectedItem()).getDocument());
-					out.close();
-					fileOut.close();
-				} catch (IOException ex) {
-					ex.printStackTrace();
-				}
+				saveDocument(primaryStage);
 			}
 		});
 		
 		// load
 		MenuItem menuItemLoad = new MenuItem("Laden...");
+		menuItemLoad.setAccelerator(KeyCombination.keyCombination("Ctrl+O"));
 		menuItemLoad.setOnAction(new EventHandler<ActionEvent>() {
 			@Override
 			public void handle(ActionEvent arg0) {
@@ -265,6 +242,8 @@ public class App extends Application {
 			         fileIn.close();
 			         
 			         tabPaneCenter.getTabs().add(new MapReduceDocumentTab(mapReduceDocument));
+			         tabPaneCenter.getSelectionModel().selectLast();
+			         addOnChangedHandlerTabCenter();
 			      }catch(IOException i)
 			      {
 			         i.printStackTrace();
@@ -280,6 +259,7 @@ public class App extends Application {
 
 		// close
 		MenuItem menuItemClose = new MenuItem("Schließen");
+		menuItemClose.setAccelerator(KeyCombination.keyCombination("Alt+F4"));
 		menuItemClose.setOnAction(new EventHandler<ActionEvent>() {
 			@Override
 			public void handle(ActionEvent arg0) {
@@ -294,8 +274,10 @@ public class App extends Application {
 		// Toolbar
 		ToolBar tools = new ToolBar();
 
-		Button execute = AwesomeFactory.createIconButton(
+		final Button execute = AwesomeFactory.createIconButton(
 				AwesomeIcons.ICON_PLAY_CIRCLE, "Ausführen", 30);
+		Tooltip executeToolTip = new Tooltip("Führt Query aus. (Ctrl+Enter)");
+		execute.setTooltip(executeToolTip);
 		execute.setOnAction(new EventHandler<ActionEvent>() {
 
 			@Override
@@ -338,8 +320,10 @@ public class App extends Application {
 		tabPaneCenter = new TabPane();
 		tabPaneCenter.getStyleClass().add("tab-pane-center");
 
-		tabPaneCenter.getTabs().add(new MapReduceDocumentTab(new MapReduceDocument("untitled", "untitled")));
-
+		MapReduceDocumentTab untitledDocumentTab = new MapReduceDocumentTab(new MapReduceDocument("untitled", "untitled")); 
+		tabPaneCenter.getTabs().add(untitledDocumentTab);
+		addOnChangedHandlerTabCenter();
+		
 		pane.setCenter(tabPaneCenter);
 		pane.getCenter().getStyleClass().add("pane-center");
 
@@ -398,6 +382,42 @@ public class App extends Application {
 		primaryStage.setScene(scene);
 
 		primaryStage.show();
+		
+		// add accelerator for execute query (Ctrl+Enter)
+		execute.getScene().getAccelerators().put(
+				  new KeyCodeCombination(KeyCode.ENTER, KeyCombination.CONTROL_ANY), 
+				  new Runnable() {
+				    @Override public void run() {
+				      execute.fire();
+				    }
+				  }
+				);
+
+		// add accelerator for closing tabs (Ctrl+W)
+		scene.getAccelerators().put(
+			      new KeyCodeCombination(KeyCode.W, KeyCombination.CONTROL_ANY), 
+			      new Runnable() {
+			        @Override public void run() {
+			        	// if document has changed or has not saved the document at all, ask if user want to save these changes
+			        	if (tabPaneCenter.getSelectionModel().getSelectedItem().getText().contains("*") || 
+			        			((MapReduceDocumentTab) tabPaneCenter.getSelectionModel().getSelectedItem()).getDocument().getTargetFile() == null) {
+				        	DialogResponse response = Dialogs.showConfirmDialog(primaryStage,
+				        		    "Sie haben das Dokument verändert, möchten Sie vor dem Schließen noch speichern?", "Dokument Speichern", "Dokument Speichern");
+				        	
+				        	if (response.compareTo(DialogResponse.YES) == 0) {
+				        		saveDocument(primaryStage);
+				        		tabPaneCenter.getTabs().remove(tabPaneCenter.getSelectionModel().getSelectedIndex());
+				        	} 
+				        	
+				        	if (response.compareTo(DialogResponse.NO) == 0) {
+				        		tabPaneCenter.getTabs().remove(tabPaneCenter.getSelectionModel().getSelectedIndex());
+				        	}
+			        	} else {
+			        		tabPaneCenter.getTabs().remove(tabPaneCenter.getSelectionModel().getSelectedIndex());
+			        	}
+			        }
+			      }
+			    );
 	}
 
 	/**
@@ -458,6 +478,64 @@ public class App extends Application {
 		Tab currentTab = tabPaneCenter.getSelectionModel().getSelectedItem();
 		return (TextArea) ((TitledPane) ((VBox) currentTab.getContent())
 				.getChildren().get(1)).getContent();
+	}
+	
+	private static void addOnChangedHandlerTabCenter() {
+		final Tab currentTab = tabPaneCenter.getSelectionModel().getSelectedItem();
+		getCurrentTextAreaMap().textProperty().addListener(new ChangeListener<String>() {
+		    @Override
+		    public void changed(final ObservableValue<? extends String> observable, final String oldValue, final String newValue) {
+		    	currentTab.setText(currentTab.getText().replace("*", "") + "*");
+		    }
+		});
+		
+		getCurrentTextAreaReduce().textProperty().addListener(new ChangeListener<String>() {
+		    @Override
+		    public void changed(final ObservableValue<? extends String> observable, final String oldValue, final String newValue) {
+		        currentTab.setText(currentTab.getText().replace("*", "") + "*");
+		    }
+		});
+	}
+	
+	private static void saveDocument(final Stage primaryStage) {
+		SingleSelectionModel<Tab> selectionModel = tabPaneCenter.getSelectionModel();
+		MapReduceDocument doc = ((MapReduceDocumentTab)selectionModel.getSelectedItem()).getDocument();
+		File file = doc.getTargetFile();
+		
+		// if document was not already saved, choose destination
+		if (file == null) {
+			FileChooser fileChooser = new FileChooser();
+
+			// Set extension filter
+			FileChooser.ExtensionFilter extFilter = new FileChooser.ExtensionFilter(
+					"MRDoc files (*.mrdoc)", "*.mrdoc");
+			fileChooser.getExtensionFilters().add(extFilter);
+
+			// Show save file dialog
+			file = fileChooser.showSaveDialog(primaryStage);
+			doc.setTargetFile(file);
+		} 
+
+		try {
+			FileOutputStream fileOut = new FileOutputStream(file);
+			ObjectOutputStream out = new ObjectOutputStream(fileOut);
+
+			out.writeObject(doc);
+			out.close();
+			fileOut.close();
+			
+			// append .mrdoc if necessary
+			if (!file.getPath().contains(".mrdoc")) {
+				System.out.println("renamed");
+				file.renameTo(new File(file.getAbsoluteFile()+".mrdoc"));
+			}
+		} catch (IOException ex) {
+			ex.printStackTrace();
+		}
+		
+		// delete modifier '*'in tab name
+		final Tab currentTab = tabPaneCenter.getSelectionModel().getSelectedItem();
+		currentTab.setText(currentTab.getText().replace("*", ""));
 	}
 
 }

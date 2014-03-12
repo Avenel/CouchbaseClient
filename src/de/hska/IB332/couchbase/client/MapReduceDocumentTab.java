@@ -18,7 +18,7 @@ public class MapReduceDocumentTab extends Tab implements Serializable {
 	public MapReduceDocumentTab(MapReduceDocument doc) {
 		super();
 		this.document = doc;
-		this.setText(doc.getDesignDocName() + "_" + doc.getViewName());
+		this.setText(doc.getDesignDocName() + "_" + doc.getViewName() + "*");
 		
 		VBox wrapperMapReduceFunctions = new VBox();
 		wrapperMapReduceFunctions.getStyleClass().add("vbox-map-reduce");

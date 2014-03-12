@@ -17,6 +17,7 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 
 import javafx.application.Application;
+import javafx.application.Platform;
 import javafx.beans.value.ChangeListener;
 import javafx.beans.value.ObservableValue;
 import javafx.collections.FXCollections;
@@ -24,15 +25,13 @@ import javafx.collections.ObservableList;
 import javafx.event.ActionEvent;
 import javafx.event.EventHandler;
 import javafx.geometry.Insets;
+import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.Dialogs;
 import javafx.scene.control.Dialogs.DialogOptions;
 import javafx.scene.control.Dialogs.DialogResponse;
 import javafx.scene.control.Label;
-import javafx.scene.control.Menu;
-import javafx.scene.control.MenuBar;
-import javafx.scene.control.MenuItem;
 import javafx.scene.control.ProgressIndicator;
 import javafx.scene.control.SingleSelectionModel;
 import javafx.scene.control.Tab;
@@ -54,12 +53,11 @@ import javafx.scene.layout.VBox;
 import javafx.scene.text.Font;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
-import javafx.util.Callback;
 
 import com.couchbase.client.internal.HttpFuture;
 import com.couchbase.client.protocol.views.ViewResponse;
 
-import de.hska.IB332.couchbase.service.AsyncGetViewCall;
+import de.hska.IB332.couchbase.service.AsyncGetViewResponseCall;
 import de.hska.IB332.couchbase.service.CouchbaseService;
 import de.hska.IB332.couchbase.service.CouchbaseServiceFactory;
 
@@ -72,6 +70,7 @@ public class App extends Application {
 	private static CouchbaseService service;
 	private static ObservableList<CouchbaseResultRow> resultRows;
 	private static TableView<CouchbaseResultRow> table;
+	private static VBox paneProgressIndicator;
 	private static ProgressIndicator progressIndicator;
 
 	/**
@@ -167,17 +166,15 @@ public class App extends Application {
 		scene.getStylesheets().add(
 				"/de/hska/IB332/couchbase/client/layoutstyles.css");
 
-		// MenuBar
-		VBox wrapperMenu = new VBox();
-		MenuBar menuBar = new MenuBar();
-
-		Menu fileMenu = new Menu("_Datei");
-		fileMenu.setMnemonicParsing(true);
-
-		// new
-		MenuItem menuItemNew = new MenuItem("Neu...");
-		menuItemNew.setAccelerator(KeyCombination.keyCombination("Ctrl+N"));
-		menuItemNew.setOnAction(new EventHandler<ActionEvent>() {
+		// Toolbar
+		ToolBar tools = new ToolBar();
+		
+		// New
+		final Button newDocument = AwesomeFactory.createIconButton(
+				AwesomeIcons.ICON_FILE, "Neu...", 30);
+		Tooltip newDocumentToolTip = new Tooltip("Erstellt ein neues Dokument. (Ctrl+N)");
+		newDocument.setTooltip(newDocumentToolTip);
+		newDocument.setOnAction(new EventHandler<ActionEvent>() {
 			@Override
 			public void handle(ActionEvent arg0) {
 				GridPane grid = new GridPane();
@@ -207,21 +204,13 @@ public class App extends Application {
 				}
 			}
 		});
-
-		// save
-		MenuItem menuItemSave = new MenuItem("Speichern...");
-		menuItemSave.setAccelerator(KeyCombination.keyCombination("Ctrl+S"));
-		menuItemSave.setOnAction(new EventHandler<ActionEvent>() {
-			@Override
-			public void handle(ActionEvent arg0) {
-				saveDocument(primaryStage);
-			}
-		});
 		
-		// load
-		MenuItem menuItemLoad = new MenuItem("Laden...");
-		menuItemLoad.setAccelerator(KeyCombination.keyCombination("Ctrl+O"));
-		menuItemLoad.setOnAction(new EventHandler<ActionEvent>() {
+		// Open
+		final Button openDocument = AwesomeFactory.createIconButton(
+				AwesomeIcons.ICON_FOLDER_OPEN, "Öffnen...", 30);
+		Tooltip openDocumentToolTip = new Tooltip("Öffnet ein vorhandenes Dokument. (Ctrl+O)");
+		openDocument.setTooltip(openDocumentToolTip);
+		openDocument.setOnAction(new EventHandler<ActionEvent>() {
 			@Override
 			public void handle(ActionEvent arg0) {
 			      try
@@ -256,24 +245,20 @@ public class App extends Application {
 			      }
 			}
 		});
-
-		// close
-		MenuItem menuItemClose = new MenuItem("Schließen");
-		menuItemClose.setAccelerator(KeyCombination.keyCombination("Alt+F4"));
-		menuItemClose.setOnAction(new EventHandler<ActionEvent>() {
+		
+		// Save
+		final Button saveDocument = AwesomeFactory.createIconButton(
+				AwesomeIcons.ICON_SAVE, "Speichern...", 30);
+		Tooltip saveDocumentToolTip = new Tooltip("Speichert das Dokument. (Ctrl+S)");
+		saveDocument.setTooltip(saveDocumentToolTip);
+		saveDocument.setOnAction(new EventHandler<ActionEvent>() {
 			@Override
 			public void handle(ActionEvent arg0) {
-				System.exit(0);
+				saveDocument(primaryStage);
 			}
 		});
-
-		fileMenu.getItems().addAll(menuItemNew, menuItemSave, menuItemLoad, menuItemClose);
-
-		menuBar.getMenus().add(fileMenu);
-
-		// Toolbar
-		ToolBar tools = new ToolBar();
-
+		
+		// Execute
 		final Button execute = AwesomeFactory.createIconButton(
 				AwesomeIcons.ICON_PLAY_CIRCLE, "Ausführen", 30);
 		Tooltip executeToolTip = new Tooltip("Führt Query aus. (Ctrl+Enter)");
@@ -289,10 +274,10 @@ public class App extends Application {
 
 					resultRows.clear();
 					// get view, async
-					progressIndicator.visibleProperty().set(true);
+					showProgressIndicator();
 					HttpFuture<ViewResponse> futureViewResponse = service
 							.getView("beginner_new", "new", 1000);
-					Thread fetchViewThread = new Thread(new AsyncGetViewCall(
+					Thread fetchViewThread = new Thread(new AsyncGetViewResponseCall(
 							futureViewResponse, resultRows, progressIndicator,
 							currentTextAreaErrors, tabPaneBottom));
 					fetchViewThread.start();
@@ -307,14 +292,17 @@ public class App extends Application {
 				}
 			}
 		});
-		tools.getItems().add(execute);
-
+		
+		tools.getItems().addAll(newDocument, openDocument, saveDocument, execute);
+		pane.setTop(tools);
+		
+		
+		// ProgressIndicator for fetching view from server
+		paneProgressIndicator = new VBox();
 		progressIndicator = new ProgressIndicator();
-		progressIndicator.visibleProperty().set(false);
-		tools.getItems().add(progressIndicator);
-
-		wrapperMenu.getChildren().addAll(menuBar, tools);
-		pane.setTop(wrapperMenu);
+		paneProgressIndicator.alignmentProperty().setValue(Pos.CENTER);
+		paneProgressIndicator.getChildren().add(progressIndicator);
+		
 
 		// Textarea for map function
 		tabPaneCenter = new TabPane();
@@ -378,10 +366,43 @@ public class App extends Application {
 		tabPaneBottom.getTabs().addAll(tabResults, tabCodeCheck, tabConsole);
 
 		pane.setBottom(tabPaneBottom);
-
+		
+		// TODO "make it sexy"
+//		scene.getRoot().getStyleClass().add("rootPane");
 		primaryStage.setScene(scene);
-
+//		primaryStage.initStyle(StageStyle.UNDECORATED);
 		primaryStage.show();
+		
+		// Accelerators
+		// add accelerator for new document (Ctrl+N)
+		newDocument.getScene().getAccelerators().put(
+				  new KeyCodeCombination(KeyCode.N, KeyCombination.CONTROL_ANY), 
+				  new Runnable() {
+				    @Override public void run() {
+				      newDocument.fire();
+				    }
+				  }
+				);
+		
+		// add accelerator for open document (Ctrl+O)
+		openDocument.getScene().getAccelerators().put(
+				  new KeyCodeCombination(KeyCode.O, KeyCombination.CONTROL_ANY), 
+				  new Runnable() {
+				    @Override public void run() {
+				    	openDocument.fire();
+				    }
+				  }
+				);
+		
+		// add accelerator for save document (Ctrl+S)
+		saveDocument.getScene().getAccelerators().put(
+				  new KeyCodeCombination(KeyCode.S, KeyCombination.CONTROL_ANY), 
+				  new Runnable() {
+				    @Override public void run() {
+				    	saveDocument.fire();
+				    }
+				  }
+				);		
 		
 		// add accelerator for execute query (Ctrl+Enter)
 		execute.getScene().getAccelerators().put(
@@ -486,6 +507,7 @@ public class App extends Application {
 		    @Override
 		    public void changed(final ObservableValue<? extends String> observable, final String oldValue, final String newValue) {
 		    	currentTab.setText(currentTab.getText().replace("*", "") + "*");
+		    	((MapReduceDocumentTab) currentTab).getDocument().setMapFunction(getCurrentTextAreaMap().getText());
 		    }
 		});
 		
@@ -493,6 +515,7 @@ public class App extends Application {
 		    @Override
 		    public void changed(final ObservableValue<? extends String> observable, final String oldValue, final String newValue) {
 		        currentTab.setText(currentTab.getText().replace("*", "") + "*");
+		        ((MapReduceDocumentTab) currentTab).getDocument().setReduceFunction(getCurrentTextAreaReduce().getText());
 		    }
 		});
 	}
@@ -536,6 +559,25 @@ public class App extends Application {
 		// delete modifier '*'in tab name
 		final Tab currentTab = tabPaneCenter.getSelectionModel().getSelectedItem();
 		currentTab.setText(currentTab.getText().replace("*", ""));
+	}
+	
+	public static void showProgressIndicator() {
+		Platform.runLater(new Runnable() {
+	        @Override
+	        public void run() {
+	        	tabPaneBottom.getTabs().get(0).setContent(paneProgressIndicator);
+	        }
+	   });
+		
+	}
+	
+	public static void hideProgressIndicator() {
+		Platform.runLater(new Runnable() {
+	        @Override
+	        public void run() {
+	        	tabPaneBottom.getTabs().get(0).setContent(table);
+	        }
+	   });
 	}
 
 }

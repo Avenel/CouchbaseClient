@@ -14,6 +14,15 @@
     -fx-font-family: "Courier New";
 }
 
+.rootPane {
+  -fx-background-radius: 6;
+  -fx-background-color: none;
+  -fx-border-radius: 6;
+  -fx-border-color: gray;
+  -fx-border-style: solid;
+  -fx-border-width: 2;
+}
+
 /* Font Awesome stuff */
 .root{
   -icons-color: rgb(114,114,144);

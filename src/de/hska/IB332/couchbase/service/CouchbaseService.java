@@ -2,6 +2,7 @@ package de.hska.IB332.couchbase.service;
 
 import java.net.URI;
 import java.util.ArrayList;
+import java.util.concurrent.ExecutionException;
 
 import com.couchbase.client.CouchbaseClient;
 import com.couchbase.client.CouchbaseConnectionFactory;
@@ -88,7 +89,7 @@ public class CouchbaseService {
 	 */
 	public HttpFuture<ViewResponse> getView(String ddName, String viewName, int limit) {		
 		// 1: Get the View definition from the cluster
-		View view = client.getView(ddName, viewName);
+		HttpFuture<View> view = client.asyncGetView(ddName, viewName);
 		
 		// 2: Create the query object
 		Query query = new Query();
@@ -97,7 +98,17 @@ public class CouchbaseService {
 		query.setStale(Stale.FALSE);
 
 		// 3: Query the cluster with the view and query information
-		HttpFuture<ViewResponse> result = client.asyncQuery(view, query);
+		HttpFuture<ViewResponse> result = null;
+		try {
+			// TODO Make it async
+			result = client.asyncQuery(view.get(), query);
+		} catch (InterruptedException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (ExecutionException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
 		
 		return result;
 	}

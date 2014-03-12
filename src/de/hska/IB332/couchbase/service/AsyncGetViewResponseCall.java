@@ -15,22 +15,21 @@ import javafx.scene.control.SingleSelectionModel;
 import javafx.scene.control.Tab;
 import javafx.scene.control.TabPane;
 import javafx.scene.control.TextArea;
+import de.hska.IB332.couchbase.client.App;
 import de.hska.IB332.couchbase.client.CouchbaseResultRow;
 
-public class AsyncGetViewCall implements Runnable {
+public class AsyncGetViewResponseCall implements Runnable {
 
 	private ObservableList<CouchbaseResultRow> resultRows;
 	HttpFuture<ViewResponse> result;
-	ProgressIndicator progressIndicator;
 	TextArea textAreaErrors;
 	TabPane tabPane;
 	
 	
-	public AsyncGetViewCall(HttpFuture<ViewResponse> result, ObservableList<CouchbaseResultRow> resultRows, 
+	public AsyncGetViewResponseCall(HttpFuture<ViewResponse> result, ObservableList<CouchbaseResultRow> resultRows, 
 							ProgressIndicator progressIndicator, TextArea textAreaErrors, TabPane tabPane) {
 		this.result = result;
 		this.resultRows = resultRows;
-		this.progressIndicator = progressIndicator;
 		this.textAreaErrors = textAreaErrors;
 		this.tabPane = tabPane;
 	}
@@ -47,31 +46,21 @@ public class AsyncGetViewCall implements Runnable {
 				}
 			}
 		} catch (InterruptedException e) {
-			hideProgressIndicator();
+			App.hideProgressIndicator();
 			this.textAreaErrors.setText(e.getMessage());
 			showConsole();
 		} catch (ExecutionException e) {
-			hideProgressIndicator();
+			App.hideProgressIndicator();
 			this.textAreaErrors.setText(e.getMessage());
 			showConsole();
 		} catch (TimeoutException e) {
-			hideProgressIndicator();
+			App.hideProgressIndicator();
 			this.textAreaErrors.setText(e.getMessage());
 			showConsole();
 		} 
 		
+		App.hideProgressIndicator();
 		this.textAreaErrors.setText("Request ist erfolgreich gewesen. Rows: " + this.resultRows.size());
-		hideProgressIndicator();
-	}
-	
-	private void hideProgressIndicator() {
-		// Hide ProgressIndicator
-		Platform.runLater(new Runnable() {
-	        @Override
-	        public void run() {
-	        	progressIndicator.visibleProperty().set(false);
-	        }
-	   });
 	}
 
 	private void showConsole() {

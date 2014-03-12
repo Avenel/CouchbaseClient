@@ -460,6 +460,7 @@ public class App extends Application {
 		        	event.consume();
 		            primaryStage.show();
 		        }
+		        System.exit(0);
 		    }
 		});
 		
@@ -500,6 +501,12 @@ public class App extends Application {
 	 */
 	private static boolean checkCode() {
 		try {
+			File theDir = new File("user_functions");
+			if (!theDir.exists()) {
+				theDir.mkdir();
+				System.out.println("created dir");
+			}
+			
 			String mapFunctionPath = "user_functions/mapFunction.js";
 			writeFile(mapFunctionPath, getCurrentTextAreaMap().getText());
 			String checkResult = checkJavaScriptFile(mapFunctionPath);

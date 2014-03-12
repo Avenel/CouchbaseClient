@@ -1,5 +1,5 @@
 function(doc, meta) {
 	if (doc.Type == "city") {
-		emit(doc.CountryCode, 2);
+		emit(doc.CountryCode, 1);
 	}
 }

@@ -15,6 +15,10 @@ import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
+import java.util.Calendar;
+import java.util.Date;
 
 import javafx.application.Application;
 import javafx.application.Platform;
@@ -53,10 +57,12 @@ import javafx.scene.layout.VBox;
 import javafx.scene.text.Font;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
+import javafx.stage.WindowEvent;
 
 import com.couchbase.client.internal.HttpFuture;
 import com.couchbase.client.protocol.views.ViewResponse;
 
+import de.hska.IB332.couchbase.service.AsyncGetCouchbaseService;
 import de.hska.IB332.couchbase.service.AsyncGetViewResponseCall;
 import de.hska.IB332.couchbase.service.CouchbaseService;
 import de.hska.IB332.couchbase.service.CouchbaseServiceFactory;
@@ -66,10 +72,14 @@ public class App extends Application {
 	private static TabPane tabPaneBottom;
 	private static TabPane tabPaneCenter;
 	private static TextArea currentTextAreaResults;
-	private static TextArea currentTextAreaErrors;
 	private static CouchbaseService service;
+	
 	private static ObservableList<CouchbaseResultRow> resultRows;
-	private static TableView<CouchbaseResultRow> table;
+	private static TableView<CouchbaseResultRow> tableResult;
+	
+	private static ObservableList<LogEntry> logRows;
+	private static TableView<LogEntry> tableLog;
+	
 	private static VBox paneProgressIndicator;
 	private static ProgressIndicator progressIndicator;
 
@@ -80,10 +90,8 @@ public class App extends Application {
 	 * 
 	 * @param args
 	 */
-	public static void main(String[] args) {
-		initService();
+	public static void main(String[] args) {	
 		launch(args);
-		
 		System.exit(0);
 	}
 
@@ -141,6 +149,7 @@ public class App extends Application {
 		return title + lines;
 	}
 
+	
 	/**
 	 * Setup GUI.
 	 */
@@ -233,15 +242,9 @@ public class App extends Application {
 			         tabPaneCenter.getTabs().add(new MapReduceDocumentTab(mapReduceDocument));
 			         tabPaneCenter.getSelectionModel().selectLast();
 			         addOnChangedHandlerTabCenter();
-			      }catch(IOException i)
-			      {
-			         i.printStackTrace();
-			         return;
-			      }catch(ClassNotFoundException c)
-			      {
-			         System.out.println("Employee class not found");
-			         c.printStackTrace();
-			         return;
+			      } catch (Exception e) {
+			    	  appendLoggingMessage(e.getMessage());
+			    	  showLogTab();
 			      }
 			}
 		});
@@ -278,8 +281,7 @@ public class App extends Application {
 					HttpFuture<ViewResponse> futureViewResponse = service
 							.getView("beginner_new", "new", 1000);
 					Thread fetchViewThread = new Thread(new AsyncGetViewResponseCall(
-							futureViewResponse, resultRows, progressIndicator,
-							currentTextAreaErrors, tabPaneBottom));
+							futureViewResponse, resultRows));
 					fetchViewThread.start();
 
 					SingleSelectionModel<Tab> selectionModel = tabPaneBottom
@@ -332,38 +334,64 @@ public class App extends Application {
 		tabResults.setText("Ergebnis");
 		tabResults.setClosable(false);
 
-		table = new TableView<CouchbaseResultRow>();
+		tableResult = new TableView<CouchbaseResultRow>();
 		resultRows = FXCollections.observableArrayList();
 
-		table.setEditable(false);
-		table.setItems(resultRows);
+		tableResult.setEditable(false);
+		tableResult.setItems(resultRows);
 
-		TableColumn<CouchbaseResultRow, String> keyCol = new TableColumn<CouchbaseResultRow, String>(
+		final TableColumn<CouchbaseResultRow, String> keyCol = new TableColumn<CouchbaseResultRow, String>(
 				"Key");
+		keyCol.setPrefWidth(100);
 		keyCol.setMinWidth(100);
 		keyCol.setCellValueFactory(new PropertyValueFactory<CouchbaseResultRow, String>(
 				"key"));
 
-		TableColumn<CouchbaseResultRow, String> valueCol = new TableColumn<CouchbaseResultRow, String>(
+		final TableColumn<CouchbaseResultRow, String> valueCol = new TableColumn<CouchbaseResultRow, String>(
 				"Value");
-		valueCol.setMinWidth(100);
+		valueCol.setPrefWidth(200);
+		valueCol.setMinWidth(200);
 		valueCol.setCellValueFactory(new PropertyValueFactory<CouchbaseResultRow, String>(
 				"result"));
+		
+		tableResult.getColumns().addAll(keyCol, valueCol);
 
-		table.getColumns().addAll(keyCol, valueCol);
+		tabResults.setContent(tableResult);
 
-		tabResults.setContent(table);
+		// Log tab
+		Tab tabLog = new Tab();
+		tabLog.setText("Log");
+		tabLog.setClosable(false);
 
-		// Error Console
-		Tab tabConsole = new Tab();
-		tabConsole.setText("Console");
-		tabConsole.setClosable(false);
+		tableLog = new TableView<LogEntry>();
+		logRows = FXCollections.observableArrayList();
 
-		currentTextAreaErrors = new TextArea();
-		currentTextAreaErrors.setEditable(false);
-		tabConsole.setContent(currentTextAreaErrors);
+		tableLog.setEditable(false);
+		tableLog.setItems(logRows);
 
-		tabPaneBottom.getTabs().addAll(tabResults, tabCodeCheck, tabConsole);
+		TableColumn<LogEntry, String> timeCol = new TableColumn<LogEntry, String>(
+				"Zeit");
+		timeCol.setMinWidth(100);
+		timeCol.setCellValueFactory(new PropertyValueFactory<LogEntry, String>(
+				"time"));
+
+		final TableColumn<LogEntry, String> messageCol = new TableColumn<LogEntry, String>(
+				"Nachricht");
+		messageCol.setMinWidth(200);
+		messageCol.setCellValueFactory(new PropertyValueFactory<LogEntry, String>(
+				"message"));
+
+		
+		// add width changed listener to table so messageCol resizes too
+		tableLog.widthProperty().addListener(new ChangeListener() {
+	      public void changed(ObservableValue observable, Object oldValue, Object newValue) {
+	          messageCol.setPrefWidth(tableLog.getWidth() - 102);
+	        }
+	      });
+		tableLog.getColumns().addAll(timeCol, messageCol);
+		tabLog.setContent(tableLog);
+		
+		tabPaneBottom.getTabs().addAll(tabResults, tabCodeCheck, tabLog);
 
 		pane.setBottom(tabPaneBottom);
 		
@@ -419,42 +447,52 @@ public class App extends Application {
 			      new KeyCodeCombination(KeyCode.W, KeyCombination.CONTROL_ANY), 
 			      new Runnable() {
 			        @Override public void run() {
-			        	// if document has changed or has not saved the document at all, ask if user want to save these changes
-			        	if (tabPaneCenter.getSelectionModel().getSelectedItem().getText().contains("*") || 
-			        			((MapReduceDocumentTab) tabPaneCenter.getSelectionModel().getSelectedItem()).getDocument().getTargetFile() == null) {
-				        	DialogResponse response = Dialogs.showConfirmDialog(primaryStage,
-				        		    "Sie haben das Dokument verändert, möchten Sie vor dem Schließen noch speichern?", "Dokument Speichern", "Dokument Speichern");
-				        	
-				        	if (response.compareTo(DialogResponse.YES) == 0) {
-				        		saveDocument(primaryStage);
-				        		tabPaneCenter.getTabs().remove(tabPaneCenter.getSelectionModel().getSelectedIndex());
-				        	} 
-				        	
-				        	if (response.compareTo(DialogResponse.NO) == 0) {
-				        		tabPaneCenter.getTabs().remove(tabPaneCenter.getSelectionModel().getSelectedIndex());
-				        	}
-			        	} else {
-			        		tabPaneCenter.getTabs().remove(tabPaneCenter.getSelectionModel().getSelectedIndex());
-			        	}
+			        	checkDocumentHasChanged(primaryStage);
 			        }
 			      }
 			    );
+		
+		// if user wants to close app, make some checks
+		primaryStage.setOnCloseRequest(new EventHandler<WindowEvent>() {
+		    @Override
+		    public void handle(WindowEvent event) {
+		        if (checkDocumentHasChanged(primaryStage).compareTo(DialogResponse.CANCEL) == 0) {
+		        	event.consume();
+		            primaryStage.show();
+		        }
+		    }
+		});
+		
+		// get Couchbase Service, async
+		Thread getCouchbaseServiceThread = new Thread(new AsyncGetCouchbaseService());
+		getCouchbaseServiceThread.start();
 	}
 
 	/**
-	 * Initialize Couchbase Service
+	 * Check if user has changed the document and asks him to save them or not.
+	 * @param stage
 	 */
-	private static void initService() {
-		service = null;
-		try {
-			// get connection to database
-			service = CouchbaseServiceFactory.getService("10.75.41.231",
-					"Administrator", "adminadmin");
-		} catch (Exception e) {
-			e.printStackTrace();
-			service.closeConnection();
-			System.exit(1);
-		}
+	private static DialogResponse checkDocumentHasChanged(Stage stage) {
+		// if document has changed or has not saved the document at all, ask if user want to save these changes
+    	if (tabPaneCenter.getSelectionModel().getSelectedItem().getText().contains("*") || 
+    			((MapReduceDocumentTab) tabPaneCenter.getSelectionModel().getSelectedItem()).getDocument().getTargetFile() == null) {
+        	DialogResponse response = Dialogs.showConfirmDialog(stage,
+        		    "Sie haben das Dokument verändert, möchten Sie vor dem Schließen noch speichern?", "Dokument Speichern", "Dokument Speichern");
+        	
+        	if (response.compareTo(DialogResponse.YES) == 0) {
+        		saveDocument(stage);
+        		tabPaneCenter.getTabs().remove(tabPaneCenter.getSelectionModel().getSelectedIndex());
+        	} 
+        	
+        	if (response.compareTo(DialogResponse.NO) == 0) {
+        		tabPaneCenter.getTabs().remove(tabPaneCenter.getSelectionModel().getSelectedIndex());
+        	}
+        	
+        	return response;
+    	} else {
+    		tabPaneCenter.getTabs().remove(tabPaneCenter.getSelectionModel().getSelectedIndex());
+    		return DialogResponse.OK;
+    	}
 	}
 
 	/**
@@ -483,7 +521,8 @@ public class App extends Application {
 
 			return true;
 		} catch (IOException e) {
-			e.printStackTrace();
+			appendLoggingMessage(e.getMessage());
+			showLogTab();
 		}
 
 		return false;
@@ -552,8 +591,11 @@ public class App extends Application {
 				System.out.println("renamed");
 				file.renameTo(new File(file.getAbsoluteFile()+".mrdoc"));
 			}
-		} catch (IOException ex) {
-			ex.printStackTrace();
+		}
+		catch(Exception e) {
+			hideProgressIndicator();
+			appendLoggingMessage(e.getMessage());
+			showLogTab();
 		}
 		
 		// delete modifier '*'in tab name
@@ -575,9 +617,25 @@ public class App extends Application {
 		Platform.runLater(new Runnable() {
 	        @Override
 	        public void run() {
-	        	tabPaneBottom.getTabs().get(0).setContent(table);
+	        	tabPaneBottom.getTabs().get(0).setContent(tableResult);
 	        }
 	   });
+	}
+	
+	public static void showLogTab() {
+		SingleSelectionModel<Tab> selectionModel = tabPaneBottom.getSelectionModel();
+		selectionModel.select(2);
+	}
+	
+	public static void appendLoggingMessage(String message) {
+		Calendar cal  = Calendar.getInstance();
+		Date     time = cal.getTime();
+		DateFormat formatter = new SimpleDateFormat();
+		logRows.add(new LogEntry(formatter.format(time), message));
+	}
+
+	public static void setCouchbaseService(CouchbaseService serv) {
+		service = serv;
 	}
 
 }

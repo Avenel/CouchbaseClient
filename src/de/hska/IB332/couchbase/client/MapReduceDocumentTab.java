@@ -2,6 +2,8 @@ package de.hska.IB332.couchbase.client;
 
 import java.io.Serializable;
 
+import javafx.beans.value.ChangeListener;
+import javafx.beans.value.ObservableValue;
 import javafx.scene.control.Tab;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TitledPane;
@@ -13,13 +15,13 @@ public class MapReduceDocumentTab extends Tab implements Serializable {
 
 	private MapReduceDocument document;
 	
+	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public MapReduceDocumentTab(MapReduceDocument doc) {
 		super();
 		this.document = doc;
 		this.setText(doc.getDesignDocName() + "_" + doc.getViewName() + "*");
 		
-		VBox wrapperMapReduceFunctions = new VBox();
-//		wrapperMapReduceFunctions.setVgrow(arg0, arg1)
+		final VBox wrapperMapReduceFunctions = new VBox();
 		wrapperMapReduceFunctions.getStyleClass().add("vbox-map-reduce");
 		TitledPane paneMapFunction = new TitledPane();
 		paneMapFunction.setText("Map Funktion");
@@ -41,6 +43,14 @@ public class MapReduceDocumentTab extends Tab implements Serializable {
 		wrapperMapReduceFunctions.getChildren().add(paneReduceFunction);
 		
 		loadTextAreas(textAreaMap, textAreaReduce, doc);
+		
+		// add height changed listener to vbox so textareas resize too
+		wrapperMapReduceFunctions.heightProperty().addListener(new ChangeListener() {
+	      public void changed(ObservableValue observable, Object oldValue, Object newValue) {
+	          textAreaMap.setPrefHeight(wrapperMapReduceFunctions.getHeight());
+	          textAreaReduce.setPrefHeight(wrapperMapReduceFunctions.getHeight());
+	        }
+	      });
 		
 		this.setContent(wrapperMapReduceFunctions);
 	}

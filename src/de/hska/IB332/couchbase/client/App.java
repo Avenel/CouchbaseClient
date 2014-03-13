@@ -447,7 +447,10 @@ public class App extends Application {
 			      new KeyCodeCombination(KeyCode.W, KeyCombination.CONTROL_ANY), 
 			      new Runnable() {
 			        @Override public void run() {
-			        	checkDocumentHasChanged(primaryStage);
+			        	if (tabPaneCenter.getTabs().size() == 0) return;
+			        	if (checkDocumentHasChanged(primaryStage, tabPaneCenter.getSelectionModel().getSelectedItem()).compareTo(DialogResponse.CANCEL) != 0) {
+			        		tabPaneCenter.getTabs().remove(tabPaneCenter.getSelectionModel().getSelectedIndex());
+			        	}
 			        }
 			      }
 			    );
@@ -456,11 +459,15 @@ public class App extends Application {
 		primaryStage.setOnCloseRequest(new EventHandler<WindowEvent>() {
 		    @Override
 		    public void handle(WindowEvent event) {
-		        if (checkDocumentHasChanged(primaryStage).compareTo(DialogResponse.CANCEL) == 0) {
-		        	event.consume();
-		            primaryStage.show();
-		        }
-		        System.exit(0);
+		    	for (Tab tab : tabPaneCenter.getTabs()) {
+			        if (checkDocumentHasChanged(primaryStage, tab).compareTo(DialogResponse.CANCEL) == 0) {
+			        	event.consume();
+			            primaryStage.show();
+			            return;
+			        }
+		    	}
+		    	
+		    	System.exit(0);
 		    }
 		});
 		
@@ -473,25 +480,19 @@ public class App extends Application {
 	 * Check if user has changed the document and asks him to save them or not.
 	 * @param stage
 	 */
-	private static DialogResponse checkDocumentHasChanged(Stage stage) {
-		// if document has changed or has not saved the document at all, ask if user want to save these changes
-    	if (tabPaneCenter.getSelectionModel().getSelectedItem().getText().contains("*") || 
+	private static DialogResponse checkDocumentHasChanged(Stage stage, Tab tab) {
+		// if document has changed or has not saved the document at all, ask if user wants to save these changes
+    	if (tab.getText().contains("*") || 
     			((MapReduceDocumentTab) tabPaneCenter.getSelectionModel().getSelectedItem()).getDocument().getTargetFile() == null) {
         	DialogResponse response = Dialogs.showConfirmDialog(stage,
-        		    "Sie haben das Dokument verändert, möchten Sie vor dem Schließen noch speichern?", "Dokument Speichern", "Dokument Speichern");
+        		    "Sie haben das Dokument verändert, möchten Sie vor dem Schließen noch speichern?", "Dokument Speichern", tab.getText());
         	
         	if (response.compareTo(DialogResponse.YES) == 0) {
         		saveDocument(stage);
-        		tabPaneCenter.getTabs().remove(tabPaneCenter.getSelectionModel().getSelectedIndex());
         	} 
-        	
-        	if (response.compareTo(DialogResponse.NO) == 0) {
-        		tabPaneCenter.getTabs().remove(tabPaneCenter.getSelectionModel().getSelectedIndex());
-        	}
         	
         	return response;
     	} else {
-    		tabPaneCenter.getTabs().remove(tabPaneCenter.getSelectionModel().getSelectedIndex());
     		return DialogResponse.OK;
     	}
 	}
@@ -538,13 +539,13 @@ public class App extends Application {
 	private static TextArea getCurrentTextAreaMap() {
 		Tab currentTab = tabPaneCenter.getSelectionModel().getSelectedItem();
 		return (TextArea) ((TitledPane) ((VBox) currentTab.getContent())
-				.getChildren().get(0)).getContent();
+				.getChildren().get(1)).getContent();
 	}
 
 	private static TextArea getCurrentTextAreaReduce() {
 		Tab currentTab = tabPaneCenter.getSelectionModel().getSelectedItem();
 		return (TextArea) ((TitledPane) ((VBox) currentTab.getContent())
-				.getChildren().get(1)).getContent();
+				.getChildren().get(2)).getContent();
 	}
 	
 	private static void addOnChangedHandlerTabCenter() {
@@ -582,6 +583,13 @@ public class App extends Application {
 
 			// Show save file dialog
 			file = fileChooser.showSaveDialog(primaryStage);
+			
+			// append .mrdoc if necessary
+			if (!file.getPath().contains(".mrdoc")) {
+				System.out.println("renamed");
+				file = new File(file.getAbsoluteFile()+".mrdoc");
+			}
+			
 			doc.setTargetFile(file);
 		} 
 
@@ -592,12 +600,6 @@ public class App extends Application {
 			out.writeObject(doc);
 			out.close();
 			fileOut.close();
-			
-			// append .mrdoc if necessary
-			if (!file.getPath().contains(".mrdoc")) {
-				System.out.println("renamed");
-				file.renameTo(new File(file.getAbsoluteFile()+".mrdoc"));
-			}
 		}
 		catch(Exception e) {
 			hideProgressIndicator();
@@ -608,6 +610,9 @@ public class App extends Application {
 		// delete modifier '*'in tab name
 		final Tab currentTab = tabPaneCenter.getSelectionModel().getSelectedItem();
 		currentTab.setText(currentTab.getText().replace("*", ""));
+		
+		// refresh name
+		((MapReduceDocumentTab) selectionModel.getSelectedItem()).setText(doc.getTargetFile().getName());
 	}
 	
 	public static void showProgressIndicator() {

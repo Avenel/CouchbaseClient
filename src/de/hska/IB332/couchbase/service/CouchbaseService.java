@@ -2,7 +2,7 @@ package de.hska.IB332.couchbase.service;
 
 import java.net.URI;
 import java.util.ArrayList;
-import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
 
 import com.couchbase.client.CouchbaseClient;
 import com.couchbase.client.CouchbaseConnectionFactory;
@@ -14,6 +14,8 @@ import com.couchbase.client.protocol.views.Stale;
 import com.couchbase.client.protocol.views.View;
 import com.couchbase.client.protocol.views.ViewDesign;
 import com.couchbase.client.protocol.views.ViewResponse;
+
+import de.hska.IB332.couchbase.client.App;
 
 public class CouchbaseService {
 	
@@ -95,19 +97,17 @@ public class CouchbaseService {
 		Query query = new Query();
 		query.setLimit(limit);
 		query.setGroup(true);
+		query.setGroupLevel(1);
 		query.setStale(Stale.FALSE);
+		query.setReduce(true);
 
 		// 3: Query the cluster with the view and query information
 		HttpFuture<ViewResponse> result = null;
 		try {
 			// TODO Make it async
-			result = client.asyncQuery(view.get(), query);
-		} catch (InterruptedException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		} catch (ExecutionException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
+			result = client.asyncQuery(view.get(10, TimeUnit.SECONDS), query);
+		} catch (Exception e) {
+			App.appendLoggingMessage(e.getMessage());
 		}
 		
 		return result;

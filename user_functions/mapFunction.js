@@ -1,5 +1,4 @@
 function(doc, meta) {
-	if (doc.Type == "city") {
-		emit(doc.CountryCode, 1);
-	}
+	var gelo;
+	gelo.p;
 }

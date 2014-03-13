@@ -4,6 +4,7 @@ import java.io.Serializable;
 
 import javafx.beans.value.ChangeListener;
 import javafx.beans.value.ObservableValue;
+import javafx.scene.control.Label;
 import javafx.scene.control.Tab;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TitledPane;
@@ -19,10 +20,21 @@ public class MapReduceDocumentTab extends Tab implements Serializable {
 	public MapReduceDocumentTab(MapReduceDocument doc) {
 		super();
 		this.document = doc;
-		this.setText(doc.getDesignDocName() + "_" + doc.getViewName() + "*");
+		if (doc.getTargetFile() == null) {
+			this.setText("untitled.mrdoc*");
+		} else {
+			this.setText(doc.getTargetFile().getName());
+		}
 		
 		final VBox wrapperMapReduceFunctions = new VBox();
 		wrapperMapReduceFunctions.getStyleClass().add("vbox-map-reduce");
+		
+		Label docNameLabel = new Label();
+		docNameLabel.setText(doc.getDesignDocName() + " : " + doc.getViewName());
+		docNameLabel.getStyleClass().add("doc-name-label");
+		wrapperMapReduceFunctions.getChildren().add(docNameLabel);
+		
+		
 		TitledPane paneMapFunction = new TitledPane();
 		paneMapFunction.setText("Map Funktion");
 	

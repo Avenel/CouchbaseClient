@@ -5,6 +5,10 @@
 	
 }
 
+.doc-name-label {
+	-fx-font-size: 24px;
+}
+
 .vbox-map-reduce {
 	-fx-padding: 20px;
 	-fx-spacing: 20px;

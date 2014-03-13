@@ -5,6 +5,7 @@ import java.util.concurrent.TimeUnit;
 import javafx.collections.ObservableList;
 
 import com.couchbase.client.internal.HttpFuture;
+import com.couchbase.client.protocol.views.RowError;
 import com.couchbase.client.protocol.views.ViewResponse;
 import com.couchbase.client.protocol.views.ViewRow;
 
@@ -29,6 +30,10 @@ public class AsyncGetViewResponseCall implements Runnable {
 			ViewResponse response = result.get(120, TimeUnit.SECONDS);
 			
 			if (response != null) {
+				for (RowError error : response.getErrors()) {
+					App.appendLoggingMessage(error.getReason());
+				}
+				
 				for (ViewRow row : response) {
 					this.resultRows.add(new CouchbaseResultRow(row.getKey(), row.getValue()));
 				}

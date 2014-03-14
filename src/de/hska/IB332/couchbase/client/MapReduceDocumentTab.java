@@ -4,11 +4,14 @@ import java.io.Serializable;
 
 import javafx.beans.value.ChangeListener;
 import javafx.beans.value.ObservableValue;
+import javafx.event.EventHandler;
 import javafx.scene.control.Label;
 import javafx.scene.control.Tab;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TitledPane;
 import javafx.scene.control.Tooltip;
+import javafx.scene.input.KeyCode;
+import javafx.scene.input.KeyEvent;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 
@@ -61,7 +64,16 @@ public class MapReduceDocumentTab extends Tab implements Serializable {
 	
 		final TextArea textAreaMap = new TextArea();
 		textAreaMap.getStyleClass().add("map-reduce-area");
-
+		textAreaMap.addEventFilter(KeyEvent.KEY_PRESSED, new EventHandler<KeyEvent>() {
+		    @Override
+		    public void handle(KeyEvent e) {
+		        if (e.getCode() == KeyCode.TAB) {
+		            textAreaMap.insertText(textAreaMap.getCaretPosition(), "   ");
+		            e.consume();
+		        }
+		    }
+		});
+		
 		paneMapFunction.setContent(textAreaMap);
 		wrapperMapReduceFunctions.getChildren().add(paneMapFunction);
 	
@@ -71,6 +83,15 @@ public class MapReduceDocumentTab extends Tab implements Serializable {
 		
 		final TextArea textAreaReduce = new TextArea();
 		textAreaReduce.getStyleClass().add("map-reduce-area");
+		textAreaReduce.addEventFilter(KeyEvent.KEY_PRESSED, new EventHandler<KeyEvent>() {
+		    @Override
+		    public void handle(KeyEvent e) {
+		        if (e.getCode() == KeyCode.TAB) {
+		            textAreaReduce.insertText(textAreaReduce.getCaretPosition(), "   ");
+		            e.consume();
+		        }
+		    }
+		});
 		
 		paneReduceFunction.setContent(textAreaReduce);
 		wrapperMapReduceFunctions.getChildren().add(paneReduceFunction);

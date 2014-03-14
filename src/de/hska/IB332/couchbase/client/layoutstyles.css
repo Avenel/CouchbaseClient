@@ -13,7 +13,6 @@
 .hbox-title {
 	-fx-padding: 10px;
 	-fx-background-radius: 6;
-	-fx-background-color: none;
 	-fx-border-radius: 6;
 	-fx-border-color: gray;
 	-fx-border-style: solid;
@@ -31,7 +30,6 @@
 
 .rootPane {
   -fx-background-radius: 6;
-  -fx-background-color: none;
   -fx-border-radius: 6;
   -fx-border-color: gray;
   -fx-border-style: solid;

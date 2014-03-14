@@ -298,10 +298,13 @@ public class App extends Application {
 		});
 		
 		// Flip Orientation
-		final Button flipOrientation = AwesomeFactory.createIconButton(
-				AwesomeIcons.ICON_ARROWS_HORIZONTAL, "Orientierung", 30);
+		
+		final Button flipOrientation = AwesomeFactory.createIconButton(AwesomeIcons.ICON_BARS, "Orientierung", 30);
 		Tooltip flipOrientationToolTip = new Tooltip("Flippt die Orientierung. (Ctrl+F)");
 		flipOrientation.setTooltip(flipOrientationToolTip);
+		Label iconFlipOrientation= AwesomeFactory.createIconLabel(AwesomeIcons.ICON_BARS, 30);
+		flipOrientation.setGraphic(iconFlipOrientation);
+		
 		flipOrientation.setOnAction(new EventHandler<ActionEvent>() {
 			@Override
 			public void handle(ActionEvent arg0) {
@@ -310,10 +313,15 @@ public class App extends Application {
 				
 				if (currentOrientation.compareTo(Orientation.HORIZONTAL) == 0) {
 					splitPane.setOrientation(Orientation.VERTICAL);
-					flipOrientation.setGraphic(AwesomeFactory.createIconLabel(AwesomeIcons.ICON_ARROWS_HORIZONTAL, 30));
+					Label iconLabel = AwesomeFactory.createIconLabel(AwesomeIcons.ICON_BARS, 30);
+					
+					flipOrientation.setGraphic(iconLabel);
 				} else {
 					splitPane.setOrientation(Orientation.HORIZONTAL);
-					flipOrientation.setGraphic(AwesomeFactory.createIconLabel(AwesomeIcons.ICON_ARROWS_VERTICAL, 30));
+					Label iconLabel = AwesomeFactory.createIconLabel(AwesomeIcons.ICON_BARS, 30);
+					iconLabel.setRotate(90);
+					
+					flipOrientation.setGraphic(iconLabel);
 				}
 				
 			}

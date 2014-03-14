@@ -48,6 +48,7 @@ public class AwesomeIcons
     public static final String ICON_VOLUME_UP = "\uf028";
     public static final String ICON_QRCODE = "\uf029";
     public static final String ICON_BARCODE = "\uf02a";
+    public static final String ICON_BARS = "\uf0c9";
     public static final String ICON_TAG = "\uf02b";
     public static final String ICON_TAGS = "\uf02c";
     public static final String ICON_BOOK = "\uf02d";

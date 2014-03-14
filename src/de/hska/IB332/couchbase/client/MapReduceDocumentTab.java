@@ -8,6 +8,8 @@ import javafx.scene.control.Label;
 import javafx.scene.control.Tab;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TitledPane;
+import javafx.scene.control.Tooltip;
+import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 
 public class MapReduceDocumentTab extends Tab implements Serializable {
@@ -29,10 +31,29 @@ public class MapReduceDocumentTab extends Tab implements Serializable {
 		final VBox wrapperMapReduceFunctions = new VBox();
 		wrapperMapReduceFunctions.getStyleClass().add("vbox-map-reduce");
 		
-		Label docNameLabel = new Label();
-		docNameLabel.setText(doc.getDesignDocName() + " : " + doc.getViewName());
-		docNameLabel.getStyleClass().add("doc-name-label");
-		wrapperMapReduceFunctions.getChildren().add(docNameLabel);
+		HBox wrapperTitle = new HBox();
+		wrapperTitle.getStyleClass().add("hbox-title");
+		
+		Label iconDesignDocument = AwesomeFactory.createIconLabel(AwesomeIcons.ICON_FILE_TEXT, 30);
+		iconDesignDocument.setTooltip(new Tooltip("Design Dokument Name"));
+		wrapperTitle.getChildren().add(iconDesignDocument);
+
+		Label designDocNameLabel = new Label();
+		designDocNameLabel.setText(doc.getDesignDocName());
+		designDocNameLabel.getStyleClass().add("doc-name-label");
+		wrapperTitle.getChildren().add(designDocNameLabel);
+		
+		Label iconView = AwesomeFactory.createIconLabel(AwesomeIcons.ICON_EYE_OPEN, 30);
+		iconView.setTooltip(new Tooltip("View Name"));
+		wrapperTitle.getChildren().add(iconView);
+
+		Label viewNameLabel = new Label();
+		viewNameLabel.setText(doc.getViewName());
+		viewNameLabel.getStyleClass().add("doc-name-label");
+		wrapperTitle.getChildren().add(viewNameLabel);
+		
+		
+		wrapperMapReduceFunctions.getChildren().add(wrapperTitle);
 		
 		
 		TitledPane paneMapFunction = new TitledPane();

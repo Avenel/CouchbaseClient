@@ -29,6 +29,7 @@ import javafx.collections.ObservableList;
 import javafx.event.ActionEvent;
 import javafx.event.EventHandler;
 import javafx.geometry.Insets;
+import javafx.geometry.Orientation;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
@@ -38,6 +39,7 @@ import javafx.scene.control.Dialogs.DialogResponse;
 import javafx.scene.control.Label;
 import javafx.scene.control.ProgressIndicator;
 import javafx.scene.control.SingleSelectionModel;
+import javafx.scene.control.SplitPane;
 import javafx.scene.control.Tab;
 import javafx.scene.control.TabPane;
 import javafx.scene.control.TableColumn;
@@ -65,10 +67,10 @@ import com.couchbase.client.protocol.views.ViewResponse;
 import de.hska.IB332.couchbase.service.AsyncGetCouchbaseService;
 import de.hska.IB332.couchbase.service.AsyncGetViewResponseCall;
 import de.hska.IB332.couchbase.service.CouchbaseService;
-import de.hska.IB332.couchbase.service.CouchbaseServiceFactory;
 
 public class App extends Application {
 
+	private static SplitPane splitPane;
 	private static TabPane tabPaneBottom;
 	private static TabPane tabPaneCenter;
 	private static TextArea currentTextAreaResults;
@@ -295,7 +297,29 @@ public class App extends Application {
 			}
 		});
 		
-		tools.getItems().addAll(newDocument, openDocument, saveDocument, execute);
+		// Flip Orientation
+		final Button flipOrientation = AwesomeFactory.createIconButton(
+				AwesomeIcons.ICON_ARROWS_HORIZONTAL, "Orientierung", 30);
+		Tooltip flipOrientationToolTip = new Tooltip("Flippt die Orientierung. (Ctrl+F)");
+		flipOrientation.setTooltip(flipOrientationToolTip);
+		flipOrientation.setOnAction(new EventHandler<ActionEvent>() {
+			@Override
+			public void handle(ActionEvent arg0) {
+				// flip orientation
+				Orientation currentOrientation = splitPane.getOrientation();
+				
+				if (currentOrientation.compareTo(Orientation.HORIZONTAL) == 0) {
+					splitPane.setOrientation(Orientation.VERTICAL);
+					flipOrientation.setGraphic(AwesomeFactory.createIconLabel(AwesomeIcons.ICON_ARROWS_HORIZONTAL, 30));
+				} else {
+					splitPane.setOrientation(Orientation.HORIZONTAL);
+					flipOrientation.setGraphic(AwesomeFactory.createIconLabel(AwesomeIcons.ICON_ARROWS_VERTICAL, 30));
+				}
+				
+			}
+		});
+		
+		tools.getItems().addAll(newDocument, openDocument, saveDocument, execute, flipOrientation);
 		pane.setTop(tools);
 		
 		
@@ -318,6 +342,7 @@ public class App extends Application {
 		pane.getCenter().getStyleClass().add("pane-center");
 
 		// Tabs for result and javascript code check
+		splitPane = new SplitPane(); 
 		tabPaneBottom = new TabPane();
 
 		// Code Check Tab
@@ -393,7 +418,9 @@ public class App extends Application {
 		
 		tabPaneBottom.getTabs().addAll(tabResults, tabCodeCheck, tabLog);
 
-		pane.setBottom(tabPaneBottom);
+		splitPane.getItems().addAll(tabPaneCenter, tabPaneBottom);
+		splitPane.setOrientation(Orientation.VERTICAL);
+		pane.setCenter(splitPane);
 		
 		// TODO "make it sexy"
 //		scene.getRoot().getStyleClass().add("rootPane");
@@ -454,6 +481,16 @@ public class App extends Application {
 			        }
 			      }
 			    );
+		
+		// add accelerator for flip orientation (Ctrl+F)
+		flipOrientation.getScene().getAccelerators().put(
+				  new KeyCodeCombination(KeyCode.F, KeyCombination.CONTROL_ANY), 
+				  new Runnable() {
+				    @Override public void run() {
+				      flipOrientation.fire();
+				    }
+				  }
+				);
 		
 		// if user wants to close app, make some checks
 		primaryStage.setOnCloseRequest(new EventHandler<WindowEvent>() {

@@ -102,6 +102,8 @@ public class AwesomeIcons
     public static final String ICON_ARROW_RIGHT = "\uf061";
     public static final String ICON_ARROW_UP = "\uf062";
     public static final String ICON_ARROW_DOWN = "\uf063";
+    public static final String ICON_ARROWS_HORIZONTAL = "\uf07e";
+    public static final String ICON_ARROWS_VERTICAL = "\uf07d";
     public static final String ICON_SHARE_ALT = "\uf064";
     public static final String ICON_RESIZE_FULL = "\uf065";
     public static final String ICON_RESIZE_SMALL = "\uf066";
@@ -228,6 +230,7 @@ public class AwesomeIcons
     public static final String ICON_COFFEE = "\uf0f4";
     public static final String ICON_FOOD = "\uf0f5";
     public static final String ICON_FILE_ALT = "\uf0f6";
+    public static final String ICON_FILE_TEXT = "\uf15c";
     public static final String ICON_BUILDING = "\uf0f7";
     public static final String ICON_HOSPITAL = "\uf0f8";
     public static final String ICON_AMBULANCE = "\uf0f9";

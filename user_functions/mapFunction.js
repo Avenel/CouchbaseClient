@@ -1,4 +1,5 @@
 function(doc, meta) {
-	var gelo;
-	gelo.p;
+	if (doc.Type == "country") {
+		emit(doc.Continent, parseFloat(doc.LifeExpectancy));
+	}
 }

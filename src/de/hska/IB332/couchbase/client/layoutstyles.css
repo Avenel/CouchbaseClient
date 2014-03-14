@@ -7,6 +7,17 @@
 
 .doc-name-label {
 	-fx-font-size: 24px;
+	-fx-padding: 0px 20px 0px 5px;
+}
+
+.hbox-title {
+	-fx-padding: 10px;
+	-fx-background-radius: 6;
+	-fx-background-color: none;
+	-fx-border-radius: 6;
+	-fx-border-color: gray;
+	-fx-border-style: solid;
+	-fx-border-width: 2;
 }
 
 .vbox-map-reduce {
